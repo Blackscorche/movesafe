@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "MoveSave",
+    "slug": "movesave",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/icon.png",
+      "backgroundColor": "#E45B25",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.movesafe.app",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "MoveSave usa tus datos de pasos para calcular tus recompensas GuaCoins diarias.",
+        "NSHealthUpdateUsageDescription": "MoveSave necesita acceso a tus datos de actividad física.",
+        "NSMotionUsageDescription": "MoveSave usa el sensor de movimiento para contar tus pasos."
+      },
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#000000"
+      },
+      "package": "com.movesafe.app",
+      "permissions": [
+        "ACTIVITY_RECOGNITION",
+        "android.permission.health.READ_STEPS"
+      ],
+      "googleServicesFile": "./google-services.json"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-localization",
+      "expo-web-browser",
+      "react-native-health",
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2ffd6a7b-da05-4067-ab1b-ace9f2f35afc"
+      },
+      "GOOGLE_WEB_CLIENT_ID": "208736045990-r6cc7mbnakluuiat2rehac5p1vuj61r5.apps.googleusercontent.com",
+      "GOOGLE_ANDROID_CLIENT_ID": "268753943704-p36n8kfs0mhmsksnkhj9la498qq3bq16.apps.googleusercontent.com"
+    }
+  }
+}

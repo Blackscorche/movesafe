@@ -1,0 +1,33 @@
+node_modules/
+.expo/
+dist/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.env
+.env.local
+.env.production
+
+# macOS
+.DS_Store
+
+# VSCode
+.vscode/
+
+# Android
+android/app/build/
+android/.gradle/
+android/build/
+*.apk
+*.aab
+
+# iOS
+ios/Pods/
+ios/build/
+
+# TypeScript
+*.tsbuildinfo

@@ -1,0 +1,190 @@
+import React, { createContext, useContext, useReducer, useCallback, ReactNode } from 'react';
+import * as SecureStore from 'expo-secure-store';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import Constants from 'expo-constants';
+import { authApi } from '../api/auth';
+import client from '../api/client';
+import { User, AuthTokens } from '../types/models';
+
+const registerPushToken = async () => {
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      const { status: s } = await Notifications.requestPermissionsAsync();
+      if (s !== 'granted') return;
+    }
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    await client.post('/users/me/device/fcm', {
+      fcm_token: tokenData.data,
+      platform: Platform.OS === 'ios' ? 'IOS' : 'ANDROID',
+    });
+  } catch {
+    // Non-critical — silently fail
+  }
+};
+
+interface AuthState {
+  isAuthenticated: boolean;
+  user: User | null;
+  tokens: AuthTokens | null;
+  isLoading: boolean;
+  isSigningOut: boolean;
+}
+
+type AuthAction =
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SIGN_IN'; payload: { user: User; tokens: AuthTokens } }
+  | { type: 'SIGN_OUT' }
+  | { type: 'UPDATE_USER'; payload: Partial<User> };
+
+const initialState: AuthState = {
+  isAuthenticated: false,
+  user: null,
+  tokens: null,
+  isLoading: true,
+  isSigningOut: false,
+};
+
+function authReducer(state: AuthState, action: AuthAction): AuthState {
+  switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload };
+    case 'SIGN_IN':
+      return {
+        ...state,
+        isAuthenticated: true,
+        user: action.payload.user,
+        tokens: action.payload.tokens,
+        isLoading: false,
+      };
+    case 'SIGN_OUT':
+      return { ...initialState, isLoading: false };
+    case 'UPDATE_USER':
+      return {
+        ...state,
+        user: state.user ? { ...state.user, ...action.payload } : null,
+      };
+    default:
+      return state;
+  }
+}
+
+interface AuthContextValue extends AuthState {
+  signIn: (user: User, tokens: AuthTokens) => Promise<void>;
+  signOut: () => Promise<void>;
+  restoreSession: () => Promise<void>;
+  updateUser: (data: Partial<User>) => void;
+  signInWithGoogle: () => Promise<{ ok: boolean; error?: string }>;
+}
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [state, dispatch] = useReducer(authReducer, initialState);
+
+  React.useEffect(() => {
+    const webClientId = Constants.expoConfig?.extra?.GOOGLE_WEB_CLIENT_ID;
+    if (webClientId) {
+      GoogleSignin.configure({
+        webClientId,
+        offlineAccess: true,
+      });
+    }
+  }, []);
+
+  const signIn = useCallback(async (user: User, tokens: AuthTokens) => {
+    await SecureStore.setItemAsync('access_token', tokens.accessToken);
+    await SecureStore.setItemAsync('refresh_token', tokens.refreshToken);
+    dispatch({ type: 'SIGN_IN', payload: { user, tokens } });
+    registerPushToken();
+  }, []);
+
+  const signOut = useCallback(async () => {
+    try {
+      const rt = await SecureStore.getItemAsync('refresh_token');
+      if (rt) await authApi.logout(rt);
+    } catch (_) { }
+    await SecureStore.deleteItemAsync('access_token');
+    await SecureStore.deleteItemAsync('refresh_token');
+    dispatch({ type: 'SIGN_OUT' });
+  }, []);
+
+  const restoreSession = useCallback(async () => {
+    try {
+      const accessToken = await SecureStore.getItemAsync('access_token');
+      const refreshToken = await SecureStore.getItemAsync('refresh_token');
+      if (accessToken && refreshToken) {
+        dispatch({
+          type: 'SIGN_IN',
+          payload: {
+            user: { id: '', name: '', level: 1, xp: 0, xpToNextLevel: 100, joinedAt: '' },
+            tokens: { accessToken, refreshToken, expiresIn: 900 },
+          },
+        });
+        return;
+      }
+    } catch (_) { }
+    dispatch({ type: 'SET_LOADING', payload: false });
+  }, []);
+
+  const updateUser = useCallback((data: Partial<User>) => {
+    dispatch({ type: 'UPDATE_USER', payload: data });
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      const idToken = userInfo.data?.idToken;
+
+      if (!idToken) {
+        return { ok: false, error: 'Token de Google no obtenido' };
+      }
+
+      const response = await authApi.googleLogin(
+        idToken,
+        Platform.OS.toUpperCase() as 'IOS' | 'ANDROID'
+      );
+
+      // Map API response to Context expected format
+      const tokens = {
+        accessToken: response.data.access_token,
+        refreshToken: response.data.refresh_token,
+        expiresIn: response.data.expires_in,
+      };
+
+      const user = {
+        id: '', // Would be filled by GET /users/me
+        name: '',
+        level: 1,
+        xp: 0,
+        xpToNextLevel: 100,
+        joinedAt: '',
+      };
+
+      await signIn(user, tokens);
+      return { ok: true };
+    } catch (error: any) {
+      console.error('Google Sign-In Error:', error);
+      return { ok: false, error: error.message || 'Error en Google Sign-In' };
+    }
+  }, [signIn]);
+
+  return (
+    <AuthContext.Provider
+      value={{ ...state, signIn, signOut, restoreSession, updateUser, signInWithGoogle }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuthContext = (): AuthContextValue => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuthContext must be used within AuthProvider');
+  }
+  return context;
+};
