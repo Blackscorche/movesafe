@@ -44,6 +44,24 @@ export const authApi = {
     ),
 
   /**
+   * Login using phone OTP.
+   */
+  loginWithOtp: (phone: string, otpCode: string) =>
+    client.post<TokenResponse>('/auth/login-otp', { phone, otp_code: otpCode }),
+
+  /**
+   * Send OTP to email.
+   */
+  sendEmailOtp: (email: string) =>
+    client.post<{ sent: boolean; email: string; dev_code?: string }>('/auth/send-email-otp', { email }),
+
+  /**
+   * Login using email OTP.
+   */
+  loginWithEmailOtp: (email: string, otpCode: string) =>
+    client.post<TokenResponse>('/auth/login-email-otp', { email, otp_code: otpCode }),
+
+  /**
    * Exchange refresh token for new access + refresh token pair.
    */
   refresh: (refreshToken: string) =>

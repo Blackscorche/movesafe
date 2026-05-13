@@ -44,6 +44,8 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const CircularProgress: React.FC<{ percentage: number }> = ({ percentage }) => {
   const anim = useRef(new Animated.Value(0)).current;
+  const radius = R - STROKE - 2;
+  const circumference = 2 * Math.PI * radius;
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -56,7 +58,7 @@ const CircularProgress: React.FC<{ percentage: number }> = ({ percentage }) => {
 
   const strokeDashoffset = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [CIRCUMFERENCE, CIRCUMFERENCE * (1 - percentage / 100)],
+    outputRange: [circumference, circumference * (1 - percentage / 100)],
   });
 
   return (
@@ -67,11 +69,11 @@ const CircularProgress: React.FC<{ percentage: number }> = ({ percentage }) => {
         <AnimatedCircle
           cx={RING_SIZE / 2}
           cy={RING_SIZE / 2}
-          r={R - STROKE - 2}
+          r={radius}
           stroke={colors.primary}
           strokeWidth={STROKE - 2}
           fill="none"
-          strokeDasharray={`${2 * Math.PI * (R - STROKE - 2)}`}
+          strokeDasharray={`${circumference}`}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
           rotation="-90"

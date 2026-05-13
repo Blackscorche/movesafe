@@ -3,9 +3,23 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CommonActions } from '@react-navigation/native';
 import { colors } from '../../utils/theme';
+import { useHealthContext } from '../../context/HealthContext';
 
 export const HealthPermissionScreen = ({ navigation }: any) => {
-  const goToWelcome = () => {
+  const { requestPermission } = useHealthContext();
+
+  const allowPermission = async () => {
+    try {
+      await requestPermission();
+    } catch (e) {
+      console.log("Permission error:", e);
+    }
+    navigation.dispatch(
+      CommonActions.reset({ index: 0, routes: [{ name: 'WelcomeBadge' }] })
+    );
+  };
+
+  const skip = () => {
     navigation.dispatch(
       CommonActions.reset({ index: 0, routes: [{ name: 'WelcomeBadge' }] })
     );
@@ -76,11 +90,11 @@ export const HealthPermissionScreen = ({ navigation }: any) => {
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.allowBtn} onPress={goToWelcome}>
+          <TouchableOpacity style={styles.allowBtn} onPress={allowPermission}>
             <Text style={styles.allowBtnText}>Permitir acceso a salud</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={goToWelcome}>
+          <TouchableOpacity onPress={skip}>
             <Text style={styles.skipText}>Omitir por ahora</Text>
           </TouchableOpacity>
         </View>

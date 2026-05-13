@@ -3,7 +3,6 @@ import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import Constants from 'expo-constants';
 import { authApi } from '../api/auth';
 import client from '../api/client';
 import { User, AuthTokens } from '../types/models';
@@ -77,6 +76,11 @@ interface AuthContextValue extends AuthState {
   restoreSession: () => Promise<void>;
   updateUser: (data: Partial<User>) => void;
   signInWithGoogle: () => Promise<{ ok: boolean; error?: string }>;
+  sendOtp: (phone: string) => Promise<{ ok: boolean; data?: any; error?: string }>;
+  verifyOtp: (phone: string, code: string) => Promise<{ ok: boolean; error?: string }>;
+  loginWithOtp: (phone: string, code: string) => Promise<{ ok: boolean; error?: string }>;
+  loginWithEmailOtp: (email: string, code: string) => Promise<{ ok: boolean; error?: string }>;
+  sendEmailOtp: (email: string) => Promise<{ ok: boolean; data?: any; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -146,6 +150,74 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'UPDATE_USER', payload: data });
   }, []);
 
+  const sendOtp = useCallback(async (phone: string) => {
+    try {
+      const response = await authApi.sendOtp(phone);
+      return { ok: true, data: response.data };
+    } catch (error: any) {
+      return { ok: false, error: error.response?.data?.detail || 'Error al enviar código' };
+    }
+  }, []);
+
+  const verifyOtp = useCallback(async (phone: string, code: string) => {
+    try {
+      const response = await authApi.verifyOtp(phone, code);
+      if (response.data.verified) {
+        return { ok: true };
+      }
+      return { ok: false, error: 'Código incorrecto' };
+    } catch (error: any) {
+      return { ok: false, error: error.response?.data?.detail || 'Error al verificar código' };
+    }
+  }, []);
+
+  const loginWithOtp = useCallback(async (phone: string, code: string) => {
+    try {
+      const response = await authApi.loginWithOtp(phone, code);
+      const { access_token, refresh_token, expires_in } = response.data;
+      const tokens = { accessToken: access_token, refreshToken: refresh_token, expiresIn: expires_in };
+      
+      const user: User = { 
+        id: '', 
+        name: response.data.display_name || 'Usuario', 
+        level: 1, xp: 0, xpToNextLevel: 100, joinedAt: '' 
+      };
+
+      await signIn(user, tokens);
+      return { ok: true, isNewUser: response.data.is_new_user };
+    } catch (error: any) {
+      return { ok: false, error: error.response?.data?.detail || 'Error al iniciar sesión' };
+    }
+  }, [signIn]);
+
+  const loginWithEmailOtp = useCallback(async (email: string, code: string) => {
+    try {
+      const response = await authApi.loginWithEmailOtp(email, code);
+      const { access_token, refresh_token, expires_in } = response.data;
+      const tokens = { accessToken: access_token, refreshToken: refresh_token, expiresIn: expires_in };
+      
+      const user: User = { 
+        id: '', 
+        name: response.data.display_name || 'Usuario', 
+        level: 1, xp: 0, xpToNextLevel: 100, joinedAt: '' 
+      };
+
+      await signIn(user, tokens);
+      return { ok: true, isNewUser: response.data.is_new_user };
+    } catch (error: any) {
+      return { ok: false, error: error.response?.data?.detail || 'Error al iniciar sesión' };
+    }
+  }, [signIn]);
+
+  const sendEmailOtp = useCallback(async (email: string) => {
+    try {
+      const response = await authApi.sendEmailOtp(email);
+      return { ok: true, data: response.data };
+    } catch (error: any) {
+      return { ok: false, error: error.response?.data?.detail || 'Error al enviar código' };
+    }
+  }, []);
+
   const signInWithGoogle = useCallback(async () => {
     try {
       await GoogleSignin.hasPlayServices();
@@ -161,7 +233,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         Platform.OS.toUpperCase() as 'IOS' | 'ANDROID'
       );
 
-      // Map API response to Context expected format
       const tokens = {
         accessToken: response.data.access_token,
         refreshToken: response.data.refresh_token,
@@ -187,7 +258,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ ...state, signIn, signOut, restoreSession, updateUser, signInWithGoogle }}
+      value={{
+        ...state,
+        signIn,
+        signOut,
+        restoreSession,
+        updateUser,
+        signInWithGoogle,
+        sendOtp,
+        verifyOtp,
+        loginWithOtp,
+        loginWithEmailOtp,
+        sendEmailOtp
+      }}
     >
       {children}
     </AuthContext.Provider>

@@ -14,6 +14,7 @@ interface OTPInputProps {
   onCodeChange?: (code: string) => void;
   error?: boolean;
   dark?: boolean;
+  value?: string;
 }
 
 export const OTPInput: React.FC<OTPInputProps> = ({
@@ -22,9 +23,17 @@ export const OTPInput: React.FC<OTPInputProps> = ({
   onCodeChange,
   error = false,
   dark = false,
+  value,
 }) => {
   const [code, setCode] = React.useState<string[]>(Array(codeLength).fill(''));
   const inputs = useRef<(TextInput | null)[]>([]);
+
+  useEffect(() => {
+    if (value === '') {
+      setCode(Array(codeLength).fill(''));
+      inputs.current[0]?.focus();
+    }
+  }, [value, codeLength]);
 
   const focusInput = useCallback(
     (index: number) => {

@@ -28,30 +28,51 @@ const PLATFORM = Platform.OS === 'ios' ? 'IOS' : 'ANDROID';
 const DEVICE_ID = Constants.sessionId ?? 'unknown-device';
 
 export const LoginScreen = ({ navigation }: any) => {
-  const { signIn, signInWithGoogle } = useAuthContext();
+  const { 
+    signIn, 
+    signInWithGoogle, 
+    sendOtp, 
+    sendEmailOtp 
+  } = useAuthContext();
+
   const [tab, setTab] = useState<"phone" | "email">("phone");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [countryCode] = useState("+58");
-  const [loading, setLoading] = useState<'google' | 'apple' | null>(null);
+  const [loading, setLoading] = useState<'google' | 'apple' | 'otp' | null>(null);
 
-  // We'll use the native signInWithGoogle from AuthContext instead of expo-auth-session
-  // const [_req, response, promptAsync] = Google.useAuthRequest({
-  //   clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-  // });
-
-  /*
-  React.useEffect(() => {
-    if (response?.type === 'success') {
-      const { authentication } = response;
-      if (authentication?.idToken) {
-        handleSocialLogin('google', authentication.idToken);
-      } else if (authentication?.accessToken) {
-        handleSocialLogin('google', authentication.accessToken);
+  const handleContinue = async () => {
+    if (tab === 'phone') {
+      if (phone.length < 10) {
+        Alert.alert('Error', 'Por favor ingresa un número de teléfono válido');
+        return;
+      }
+      setLoading('otp');
+      const fullPhone = `${countryCode}${phone.replace(/\s/g, '')}`;
+      const res = await sendOtp(fullPhone);
+      setLoading(null);
+      if (res.ok) {
+        navigation.navigate('OTP', { type: 'phone', identifier: fullPhone });
+      } else {
+        setPhone(""); // Clear input
+        Alert.alert('Inténtalo de nuevo', res.error || 'No se pudo enviar el código');
+      }
+    } else {
+      if (!email.includes('@')) {
+        Alert.alert('Error', 'Por favor ingresa un correo válido');
+        return;
+      }
+      setLoading('otp');
+      const res = await sendEmailOtp(email);
+      setLoading(null);
+      if (res.ok) {
+        navigation.navigate('OTP', { type: 'email', identifier: email });
+      } else {
+        setEmail(""); // Clear input
+        Alert.alert('Inténtalo de nuevo', res.error || 'No se pudo enviar el código');
       }
     }
-  }, [response]);
-  */
+  };
 
   const handleSocialLogin = async (provider: 'google' | 'apple', token: string) => {
     setLoading(provider);
@@ -93,10 +114,6 @@ export const LoginScreen = ({ navigation }: any) => {
     } finally {
       setLoading(null);
     }
-  };
-
-  const handleContinue = () => {
-    Alert.alert('Info', 'Por favor usa Google o Apple para iniciar sesión. El OTP se activa después de registrarte.');
   };
 
   return (
@@ -187,7 +204,11 @@ export const LoginScreen = ({ navigation }: any) => {
           )}
 
           {/* CONTINUE BUTTON */}
-          <AppButton title="Continuar" onPress={handleContinue} />
+          <AppButton 
+            title="Continuar" 
+            onPress={handleContinue} 
+            loading={loading === 'otp'} 
+          />
 
           {/* DIVIDER */}
           <View style={styles.divider}>
