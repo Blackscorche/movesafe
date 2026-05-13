@@ -85,12 +85,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   React.useEffect(() => {
-    const webClientId = Constants.expoConfig?.extra?.GOOGLE_WEB_CLIENT_ID;
+    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+    console.log('Configuring Google Sign-In with Web Client ID:', webClientId);
+    
     if (webClientId) {
       GoogleSignin.configure({
         webClientId,
         offlineAccess: true,
       });
+    } else {
+      console.warn('EXPO_PUBLIC_GOOGLE_CLIENT_ID not found in environment');
     }
   }, []);
 
@@ -103,9 +107,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = useCallback(async () => {
     try {
+      // 1. Clear Google session to force account picker next time
+      await GoogleSignin.signOut();
+      try {
+        await GoogleSignin.revokeAccess();
+      } catch (_) { /* ignore if already revoked */ }
+
+      // 2. Revoke backend session
       const rt = await SecureStore.getItemAsync('refresh_token');
       if (rt) await authApi.logout(rt);
     } catch (_) { }
+
+    // 3. Clear local storage
     await SecureStore.deleteItemAsync('access_token');
     await SecureStore.deleteItemAsync('refresh_token');
     dispatch({ type: 'SIGN_OUT' });
@@ -156,8 +169,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       };
 
       const user = {
-        id: '', // Would be filled by GET /users/me
-        name: '',
+        id: userInfo.data?.user.id || '',
+        name: userInfo.data?.user.name || '',
         level: 1,
         xp: 0,
         xpToNextLevel: 100,

@@ -42,13 +42,39 @@ const C = {
 export const StepsDetailScreen = () => {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly'>('daily');
-  const { refreshWeekly } = useSteps();
+  const { weeklyHistory, refreshWeekly } = useSteps();
 
   useEffect(() => {
     refreshWeekly?.();
   }, []);
 
   const BAR_MAX_H = 110;
+
+  // Map real history to our row format
+  const realRows = weeklyHistory.map((item: any) => {
+    const dateObj = new Date(item.date);
+    const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const isToday = new Date().toDateString() === dateObj.toDateString();
+    
+    return {
+      day: isToday ? 'Hoy' : dayNames[dateObj.getDay()],
+      steps: item.steps,
+      goal: item.goal,
+      gc: item.gcEarned || 0,
+      met: item.goalMet,
+      isToday
+    };
+  }).reverse(); // Most recent at the end for the chart
+
+  const displayRows = realRows.length > 0 ? realRows : [
+    { day: 'Lun', steps: 0, goal: 10000, gc: 0, met: false },
+    { day: 'Mar', steps: 0, goal: 10000, gc: 0, met: false },
+    { day: 'Mié', steps: 0, goal: 10000, gc: 0, met: false },
+    { day: 'Jue', steps: 0, goal: 10000, gc: 0, met: false },
+    { day: 'Vie', steps: 0, goal: 10000, gc: 0, met: false },
+    { day: 'Sáb', steps: 0, goal: 10000, gc: 0, met: false },
+    { day: 'Hoy', steps: 0, goal: 10000, gc: 0, met: false, isToday: true },
+  ];
 
   return (
     <View style={styles.root}>
@@ -107,7 +133,7 @@ export const StepsDetailScreen = () => {
             </View>
 
             <View style={styles.chartArea}>
-              {DETAIL_ROWS.map((row, idx) => {
+              {displayRows.map((row, idx) => {
                 const barH = (row.steps / 12000) * BAR_MAX_H;
                 const barColor = row.isToday ? C.primary : (row.met ? C.success : C.barDark);
 
@@ -140,9 +166,9 @@ export const StepsDetailScreen = () => {
 
           {/* Daily List Card */}
           <View style={styles.listCard}>
-            {DETAIL_ROWS.map((row, idx) => {
+            {[...displayRows].reverse().map((row, idx) => {
               const pct = Math.round((row.steps / row.goal) * 100);
-              const isLast = idx === DETAIL_ROWS.length - 1;
+              const isLast = idx === displayRows.length - 1;
 
               return (
                 <View key={idx} style={[styles.listRow, isLast && { borderBottomWidth: 0 }]}>

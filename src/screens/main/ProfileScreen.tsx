@@ -1,4 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuthContext } from '../../context/AuthContext';
+import { profileApi } from '../../api/profile';
+import { guacoinsApi } from '../../api/guacoins';
+import { Mission as ApiMission } from '../../types/models';
 import {
   View,
   Text,
@@ -119,21 +123,46 @@ const MissionRow = ({ m, isLast }: { m: Mission; isLast: boolean }) => {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export const ProfileScreen = ({ navigation }: any) => {
-  const [dashboard, setDashboard] = React.useState<any>(null);
+  const { signOut, user: authUser } = useAuthContext();
+  const [dashboard, setDashboard] = useState<any>(null);
+  const [missions, setMissions] = useState<ApiMission[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  React.useEffect(() => {
-    import('../../api/guacoins').then(({ guacoinsApi }) => {
-      guacoinsApi.getBalance().then((r) => setDashboard(r.data)).catch(() => { });
+  const handleLogout = async () => {
+    await signOut();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Auth' }],
     });
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [dashRes, missionRes] = await Promise.all([
+          guacoinsApi.getBalance(),
+          profileApi.getMissions()
+        ]);
+        setDashboard(dashRes.data);
+        setMissions(missionRes.data);
+      } catch (e) {
+        console.error('Error loading profile data:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, []);
 
   const level = dashboard?.level ?? 1;
   const xp = dashboard?.xp ?? 0;
-  const xpNext = dashboard?.xp_to_next_level ?? 1000;
+  const xpNext = (dashboard?.xp ?? 0) + (dashboard?.xp_to_next_level ?? 1000);
   const streak = dashboard?.streak_days ?? 0;
   const redemptions = dashboard?.total_redemptions ?? 0;
   const xpPct = Math.min(100, Math.round((xp / xpNext) * 100));
-  const displayName = dashboard?.display_name ?? 'Usuario';
+  const displayName = dashboard?.display_name || authUser?.name || 'Usuario';
+  const balance = dashboard?.wallet_balance ?? 0;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -198,21 +227,44 @@ export const ProfileScreen = ({ navigation }: any) => {
             <View style={[styles.statRing, { borderColor: C.green }]}>
               <Text style={styles.statEmoji}>⭐</Text>
             </View>
-            <Text style={[styles.statVal, { color: C.green }]}>520GC</Text>
-            <Text style={styles.statLbl}>Ahorrado</Text>
+            <Text style={[styles.statVal, { color: C.green }]}>{balance}GC</Text>
+            <Text style={styles.statLbl}>Balance</Text>
           </View>
         </View>
 
         {/* ══════ MISSIONS ══════ */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Misiones</Text>
-          <Text style={styles.sectionSub}>3 de 8 completadas</Text>
+          <Text style={styles.sectionSub}>{missions.filter(m => m.completed).length} de {missions.length} completadas</Text>
         </View>
 
         <View style={styles.missionCard}>
-          {MISSIONS.map((m, i) => (
-            <MissionRow key={m.id} m={m} isLast={i === MISSIONS.length - 1} />
-          ))}
+          {missions.length > 0 ? missions.map((m, i) => (
+            <View key={m.id} style={[styles.missionRow, i < missions.length - 1 && styles.missionBorder]}>
+               <View style={[styles.missionIcon, { backgroundColor: m.completed ? C.greenTint : C.orangeTint }]}>
+                <Text style={styles.missionEmoji}>{m.icon || '🎯'}</Text>
+              </View>
+              <View style={styles.missionBody}>
+                <View style={styles.missionTitleRow}>
+                  <Text style={[styles.missionTitle, m.completed && styles.missionTitleDone]}>{m.title}</Text>
+                  {m.completed ? (
+                    <View style={styles.greenCheck}><Text style={styles.greenCheckText}>✓</Text></View>
+                  ) : (
+                    <View style={styles.pendingPill}><Text style={styles.pendingPillText}>Pendiente</Text></View>
+                  )}
+                </View>
+                {!m.completed && (
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${Math.round((m.progress/m.total)*100)}%`, backgroundColor: C.orange }]} />
+                  </View>
+                )}
+              </View>
+            </View>
+          )) : (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={{ color: '#888' }}>No hay misiones disponibles</Text>
+            </View>
+          )}
         </View>
 
         {/* ══════ FAVORITE STORES ══════ */}
@@ -293,11 +345,22 @@ export const ProfileScreen = ({ navigation }: any) => {
           <View style={styles.menuDivider} />
 
           {/* Configuración */}
-          <TouchableOpacity style={[styles.menuRow, { borderBottomWidth: 0 }]} onPress={() => navigation?.navigate('Settings')}>
+          <TouchableOpacity style={styles.menuRow} onPress={() => navigation?.navigate('Settings')}>
             <View style={[styles.menuIconCircle, { backgroundColor: 'rgba(100,100,100,0.15)' }]}>
               <Text style={styles.menuEmoji}>⚙️</Text>
             </View>
             <Text style={styles.menuRowLabel}>Configuración</Text>
+            <Text style={styles.menuRowArrow}>›</Text>
+          </TouchableOpacity>
+
+          <View style={styles.menuDivider} />
+
+          {/* Cerrar Sesión */}
+          <TouchableOpacity style={[styles.menuRow, { borderBottomWidth: 0 }]} onPress={handleLogout}>
+            <View style={[styles.menuIconCircle, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
+              <Text style={styles.menuEmoji}>🚪</Text>
+            </View>
+            <Text style={[styles.menuRowLabel, { color: '#EF4444' }]}>Cerrar Sesión</Text>
             <Text style={styles.menuRowArrow}>›</Text>
           </TouchableOpacity>
         </View>

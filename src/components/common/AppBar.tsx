@@ -9,9 +9,12 @@ interface AppBarProps {
   showBack?: boolean;
 }
 
+import { useAuthContext } from '../../context/AuthContext';
+
 export const AppBar: React.FC<AppBarProps> = ({ showBack }) => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { user } = useAuthContext();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
@@ -26,7 +29,7 @@ export const AppBar: React.FC<AppBarProps> = ({ showBack }) => {
         </View>
         <View>
           <Text style={styles.badge}>PIONERO</Text>
-          <Text style={styles.name}>Juan Diaz</Text>
+          <Text style={styles.name}>{user?.name || 'Usuario'}</Text>
         </View>
       </View>
       <View style={styles.right}>

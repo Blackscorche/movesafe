@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback, useRef } from 'react';
+import { useGuaCoins } from '../../hooks/useGuaCoins';
 import {
   View,
   Text,
@@ -126,9 +127,16 @@ const StepsWidget = ({ steps, goal, percentage, distance, calories, minutes }: a
 export const HomeScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { stepsToday, goal, percentage, todaySteps, sync, isSyncing } = useSteps();
+  const { dashboard, fetchBalance, isLoading: isDashboardLoading } = useGuaCoins();
 
-  useEffect(() => { sync(); }, []);
-  const onRefresh = useCallback(async () => { await sync(); }, [sync]);
+  useEffect(() => { 
+    sync(); 
+    fetchBalance();
+  }, []);
+
+  const onRefresh = useCallback(async () => { 
+    await Promise.all([sync(), fetchBalance()]);
+  }, [sync, fetchBalance]);
 
   return (
     <LinearGradient colors={['#E8E8E8', '#DADADA']} style={styles.root}>
@@ -137,17 +145,17 @@ export const HomeScreen = ({ navigation }: any) => {
       <ScrollView
         style={styles.container}
         contentContainerStyle={[styles.content, { paddingTop: 0 }]}
-        refreshControl={<RefreshControl refreshing={isSyncing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={isSyncing || isDashboardLoading} onRefresh={onRefresh} tintColor={colors.primary} />}
         showsVerticalScrollIndicator={false}
       >
 
         <StepsWidget
-          steps={stepsToday ?? 7842}
-          goal={goal ?? 10000}
-          percentage={percentage ?? 78}
-          distance={todaySteps?.distance ?? 5200}
-          calories={todaySteps?.calories ?? 234}
-          minutes={todaySteps?.minutes ?? 38}
+          steps={stepsToday}
+          goal={goal}
+          percentage={percentage}
+          distance={todaySteps?.distance ?? 0}
+          calories={todaySteps?.calories ?? 0}
+          minutes={todaySteps?.minutes ?? 0}
         />
 
         {/* ── Grid Layout ── */}
@@ -170,7 +178,9 @@ export const HomeScreen = ({ navigation }: any) => {
                   <Text style={styles.balanceTopLabel}>GuaCoins</Text>
                 </View>
               </View>
-              <Text style={styles.balanceValue}>1,250 <Text style={styles.balanceGC}>GC</Text></Text>
+              <Text style={styles.balanceValue}>
+                {(dashboard?.wallet_balance ?? 0).toLocaleString()} <Text style={styles.balanceGC}>GC</Text>
+              </Text>
             </TouchableOpacity>
 
             {/* Challenge Card */}
@@ -205,7 +215,7 @@ export const HomeScreen = ({ navigation }: any) => {
                 <View style={styles.streakInfoWrap}>
                   <Text style={styles.streakSmallTitle}>Racha actual</Text>
                   <View style={styles.daysContainer}>
-                    <Text style={styles.streakBigNum}>5</Text>
+                    <Text style={styles.streakBigNum}>{dashboard?.streak_days ?? 0}</Text>
                     <Text style={styles.streakDaysUnit}>días</Text>
                   </View>
                 </View>
@@ -215,17 +225,17 @@ export const HomeScreen = ({ navigation }: any) => {
               <View style={styles.bonusPillExact}>
                 <Text style={styles.starEmojiExact}>⭐</Text>
                 <View>
-                  <Text style={styles.bonusMainText}>+2 bonus</Text>
+                  <Text style={styles.bonusMainText}>+{dashboard?.bonus_streak_days ?? 0} bonus</Text>
                   <Text style={styles.bonusSubText}>(10k+ pasos)</Text>
                 </View>
               </View>
 
               {/* Bottom Section: Milestone Progress */}
               <View style={styles.milestoneBoxExact}>
-                <Text style={styles.milestoneBoxTitle}>Próximo hito: 7 días</Text>
+                <Text style={styles.milestoneBoxTitle}>Próximo hito: {((dashboard?.streak_days ?? 0) > 7 ? 30 : 7)} días</Text>
 
                 <View style={styles.exactProgressTrack}>
-                  <View style={[styles.exactProgressFill, { width: '75%' }]} />
+                  <View style={[styles.exactProgressFill, { width: `${Math.min(((dashboard?.streak_days ?? 0) / 7) * 100, 100)}%` }]} />
                 </View>
 
                 <Text style={styles.exactRewardText}>+20 GC</Text>

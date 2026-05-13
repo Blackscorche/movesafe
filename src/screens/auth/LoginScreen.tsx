@@ -28,17 +28,19 @@ const PLATFORM = Platform.OS === 'ios' ? 'IOS' : 'ANDROID';
 const DEVICE_ID = Constants.sessionId ?? 'unknown-device';
 
 export const LoginScreen = ({ navigation }: any) => {
-  const { signIn } = useAuthContext();
+  const { signIn, signInWithGoogle } = useAuthContext();
   const [tab, setTab] = useState<"phone" | "email">("phone");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [countryCode] = useState("+58");
   const [loading, setLoading] = useState<'google' | 'apple' | null>(null);
 
-  const [_req, response, promptAsync] = Google.useAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-  });
+  // We'll use the native signInWithGoogle from AuthContext instead of expo-auth-session
+  // const [_req, response, promptAsync] = Google.useAuthRequest({
+  //   clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
+  // });
 
+  /*
   React.useEffect(() => {
     if (response?.type === 'success') {
       const { authentication } = response;
@@ -49,6 +51,7 @@ export const LoginScreen = ({ navigation }: any) => {
       }
     }
   }, [response]);
+  */
 
   const handleSocialLogin = async (provider: 'google' | 'apple', token: string) => {
     setLoading(provider);
@@ -62,7 +65,7 @@ export const LoginScreen = ({ navigation }: any) => {
       if (is_new_user) {
         navigation.replace('HealthPermission');
       } else {
-        navigation.replace('MainTabs');
+        navigation.navigate('Main');
       }
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.detail ?? e.message ?? 'Login failed');
@@ -197,7 +200,16 @@ export const LoginScreen = ({ navigation }: any) => {
           <View style={styles.ssoRow}>
             <TouchableOpacity
               style={styles.ssoBtn}
-              onPress={() => promptAsync()}
+              onPress={async () => {
+                setLoading('google');
+                const res = await signInWithGoogle();
+                setLoading(null);
+                if (res.ok) {
+                  navigation.navigate('Main');
+                } else if (res.error) {
+                  Alert.alert('Error', res.error);
+                }
+              }}
               activeOpacity={0.8}
               disabled={!!loading}
             >
