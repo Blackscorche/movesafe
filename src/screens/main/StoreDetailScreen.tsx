@@ -105,127 +105,83 @@ export const StoreDetailScreen = ({ navigation, route }: any) => {
 
   return (
     <View style={styles.root}>
-      {/* HEADER (Mocked for Store Detail) */}
+      {/* HEADER */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity style={styles.profileBtn}>
-            <MaterialCommunityIcons name="account" size={20} color="#FFF" />
-          </TouchableOpacity>
-          <View>
-            <Text style={styles.headerSubtitle}>PRIMERO</Text>
-            <Text style={styles.headerTitle}>Usuario MoveSave</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.bellBtn}>
-          <MaterialCommunityIcons name="bell-outline" size={22} color="#000" />
-          <View style={styles.badge}><Text style={styles.badgeText}>3</Text></View>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#000" />
         </TouchableOpacity>
+        <Text style={styles.headerTitle}>{store.business_name}</Text>
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        bounces={false}
       >
-        {/* ── HERO ── */}
+        {/* HERO IMAGE */}
         <View style={styles.heroImage}>
-          <Image 
-            source={store.photo_url ? { uri: store.photo_url } : require('../../assets/images/store-placeholder.png')} 
-            style={StyleSheet.absoluteFillObject} 
-          />
-          
+          {store.photo_url ? (
+             <Image source={{ uri: store.photo_url }} style={StyleSheet.absoluteFillObject} />
+          ) : (
+             <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#333', justifyContent: 'center', alignItems: 'center' }]}>
+               <MaterialCommunityIcons name="storefront-outline" size={60} color="#666" />
+             </View>
+          )}
           <View style={styles.heroOverlay} />
-
-          {/* back button */}
-          <TouchableOpacity
-            style={styles.heroBackButton}
-            onPress={() => navigation.goBack()}
-          >
-            <MaterialCommunityIcons name="arrow-left" size={20} color="#000" />
-          </TouchableOpacity>
-
-          {/* actions */}
-          <View style={styles.heroActionsRight}>
-            <TouchableOpacity style={styles.heroActionButton} onPress={() => storesApi.toggleFavorite(store.id)}>
-              <MaterialCommunityIcons name="heart-outline" size={20} color="#000" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.heroActionButton}>
-              <MaterialCommunityIcons name="share-variant" size={20} color="#000" />
-            </TouchableOpacity>
-          </View>
-
-          {/* hero bottom stats */}
           <View style={styles.heroBottom}>
             <Text style={styles.heroStoreName}>{store.business_name}</Text>
             <View style={styles.heroStats}>
               <View style={styles.heroStatChipDark}>
-                <MaterialCommunityIcons name="thumb-up" size={12} color="#2ECC71" />
-                <Text style={styles.heroStatGreen}> {positiveVotes}</Text>
-                <Text style={{color: '#fff', fontSize: 10, marginHorizontal: 4}}>|</Text>
-                <MaterialCommunityIcons name="thumb-down" size={12} color="#E74C3C" />
-                <Text style={styles.heroStatRed}> {negativeVotes}</Text>
+                <Text style={styles.heroStatGreen}>👍 {positiveVotes}</Text>
+                <Text style={{color: '#fff', marginHorizontal: 4}}>|</Text>
+                <Text style={styles.heroStatRed}>👎 {negativeVotes}</Text>
               </View>
               <View style={styles.heroStatChipWhite}>
                 <Text style={styles.heroStatDark}>{approvalPct}% positivo</Text>
               </View>
-              {store.distance_km != null && (
-                <View style={styles.heroStatChipDark}>
-                  <MaterialCommunityIcons name="map-marker" size={12} color="#ccc" />
-                  <Text style={styles.heroStatMuted}> {Number(store.distance_km).toFixed(1)} km</Text>
-                </View>
-              )}
             </View>
           </View>
         </View>
 
-        {/* ── MAP SECTION ── */}
-        <View style={styles.mapSection}>
-          {MapView ? (
-            <MapView
-              style={styles.mapImage}
-              initialRegion={{
-                latitude: lat,
-                longitude: lng,
-                latitudeDelta: 0.05,
-                longitudeDelta: 0.05,
-              }}
-            >
-              <Marker coordinate={{ latitude: lat, longitude: lng }} />
-            </MapView>
-          ) : (
-            <View style={[styles.mapImage, { backgroundColor: '#ddd', justifyContent: 'center', alignItems: 'center' }]}>
-              <Text style={{ color: '#888' }}>Mapa no disponible</Text>
-            </View>
-          )}
-        </View>
-
-        {/* ── INFO CARD ── */}
-        <View style={styles.infoWrapper}>
+        {/* INFO CARD */}
+        <View style={{ padding: 16 }}>
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardTitle}>Información</Text>
-
+            <Text style={styles.infoCardTitle}>Detalles del Comercio</Text>
+            
             <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="map-marker-outline" size={16} color="#888" />
-              <Text style={styles.infoText}>{store.address || 'Dirección no disponible'}</Text>
+              <MaterialCommunityIcons name="map-marker-outline" size={20} color="#E45B25" />
+              <Text style={styles.infoText}>{store.address || 'Caracas, Venezuela'}</Text>
             </View>
 
             <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="phone-outline" size={16} color="#888" />
-              <Text style={styles.phoneText}>{store.phone || 'Teléfono no disponible'}</Text>
-            </View>
-
-            <View style={[styles.infoRow, { alignItems: 'flex-start' }]}>
-              <MaterialCommunityIcons name="clock-outline" size={16} color="#888" style={{marginTop: 2}} />
-              <View style={{flex: 1}}>
-                 <Text style={styles.infoText}>Horario sujeto a cambios.</Text>
-                 <Text style={[styles.openText, { color: store.is_active ? '#2ECC71' : '#E74C3C' }]}>
-                    {store.is_active ? 'Abierto ahora' : 'Cerrado temporalmente'}
-                 </Text>
-              </View>
+              <MaterialCommunityIcons name="phone-outline" size={20} color="#2ECC71" />
+              <Text style={styles.phoneText}>{store.phone || 'No disponible'}</Text>
             </View>
           </View>
         </View>
+
+        {/* MOCK MAP PLACEHOLDER (Safe) */}
+        <View style={[styles.mapSection, { backgroundColor: '#ddd', justifyContent: 'center', alignItems: 'center' }]}>
+           <MaterialCommunityIcons name="map-outline" size={40} color="#999" />
+           <Text style={{ color: '#888', marginTop: 8 }}>Mapa (Temporalmente deshabilitado)</Text>
+        </View>
+
+        {/* COUPONS SECTION */}
+        <View style={styles.couponsSection}>
+          <Text style={styles.couponsTitle}>Cupones</Text>
+          {MOCK_COUPONS.map((coupon) => (
+            <CouponCard
+              key={coupon.id}
+              coupon={{...coupon, storeId: store.id, storeName: store.business_name}}
+              onRedeem={() => navigation.navigate('QRScreen', { couponId: coupon.id })}
+            />
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+};
 
         {/* ── COUPONS SECTION ── */}
         <View style={styles.couponsSection}>
