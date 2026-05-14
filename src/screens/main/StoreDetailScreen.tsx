@@ -60,10 +60,19 @@ export const StoreDetailScreen = ({ navigation, route }: any) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!storeId) return;
+    if (!storeId) {
+      console.warn('StoreDetailScreen: storeId is missing');
+      return;
+    }
+    setLoading(true);
     storesApi.getById(storeId)
-      .then(res => setStore(res.data))
-      .catch(err => console.log('Error fetching store', err))
+      .then(res => {
+        console.log('StoreDetailScreen: Fetched store:', res.data);
+        setStore(res.data);
+      })
+      .catch(err => {
+        console.error('StoreDetailScreen: Error fetching store:', err);
+      })
       .finally(() => setLoading(false));
   }, [storeId]);
 
@@ -87,8 +96,12 @@ export const StoreDetailScreen = ({ navigation, route }: any) => {
   }
 
   const approvalPct = store.approval_pct ?? 0;
-  const positiveVotes = Math.round((approvalPct / 100) * store.total_votes);
-  const negativeVotes = store.total_votes - positiveVotes;
+  const totalVotes = store.total_votes ?? 0;
+  const positiveVotes = Math.round((approvalPct / 100) * totalVotes);
+  const negativeVotes = totalVotes - positiveVotes;
+
+  const lat = typeof store.latitude === 'number' ? store.latitude : -14.2350;
+  const lng = typeof store.longitude === 'number' ? store.longitude : -51.9253;
 
   return (
     <View style={styles.root}>
@@ -96,11 +109,11 @@ export const StoreDetailScreen = ({ navigation, route }: any) => {
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity style={styles.profileBtn}>
-            <MaterialCommunityIcons name="account" size={20} color="#000" />
+            <MaterialCommunityIcons name="account" size={20} color="#FFF" />
           </TouchableOpacity>
           <View>
             <Text style={styles.headerSubtitle}>PRIMERO</Text>
-            <Text style={styles.headerTitle}>Juan Diaz</Text>
+            <Text style={styles.headerTitle}>Usuario MoveSave</Text>
           </View>
         </View>
         <TouchableOpacity style={styles.bellBtn}>
@@ -138,7 +151,7 @@ export const StoreDetailScreen = ({ navigation, route }: any) => {
               <MaterialCommunityIcons name="heart-outline" size={20} color="#000" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.heroActionButton}>
-              <MaterialCommunityIcons name="share-variant-outline" size={20} color="#000" />
+              <MaterialCommunityIcons name="share-variant" size={20} color="#000" />
             </TouchableOpacity>
           </View>
 
@@ -147,10 +160,10 @@ export const StoreDetailScreen = ({ navigation, route }: any) => {
             <Text style={styles.heroStoreName}>{store.business_name}</Text>
             <View style={styles.heroStats}>
               <View style={styles.heroStatChipDark}>
-                <MaterialCommunityIcons name="thumb-up-outline" size={12} color="#2ECC71" />
+                <MaterialCommunityIcons name="thumb-up" size={12} color="#2ECC71" />
                 <Text style={styles.heroStatGreen}> {positiveVotes}</Text>
                 <Text style={{color: '#fff', fontSize: 10, marginHorizontal: 4}}>|</Text>
-                <MaterialCommunityIcons name="thumb-down-outline" size={12} color="#E74C3C" />
+                <MaterialCommunityIcons name="thumb-down" size={12} color="#E74C3C" />
                 <Text style={styles.heroStatRed}> {negativeVotes}</Text>
               </View>
               <View style={styles.heroStatChipWhite}>
@@ -158,8 +171,8 @@ export const StoreDetailScreen = ({ navigation, route }: any) => {
               </View>
               {store.distance_km != null && (
                 <View style={styles.heroStatChipDark}>
-                  <MaterialCommunityIcons name="map-marker-outline" size={12} color="#ccc" />
-                  <Text style={styles.heroStatMuted}> {store.distance_km.toFixed(1)} km</Text>
+                  <MaterialCommunityIcons name="map-marker" size={12} color="#ccc" />
+                  <Text style={styles.heroStatMuted}> {Number(store.distance_km).toFixed(1)} km</Text>
                 </View>
               )}
             </View>
@@ -168,17 +181,23 @@ export const StoreDetailScreen = ({ navigation, route }: any) => {
 
         {/* ── MAP SECTION ── */}
         <View style={styles.mapSection}>
-          <MapView
-            style={styles.mapImage}
-            initialRegion={{
-              latitude: store.latitude ?? -14.2350,
-              longitude: store.longitude ?? -51.9253, // default Brazil
-              latitudeDelta: 0.05,
-              longitudeDelta: 0.05,
-            }}
-          >
-            <Marker coordinate={{ latitude: store.latitude ?? -14.2350, longitude: store.longitude ?? -51.9253 }} />
-          </MapView>
+          {MapView ? (
+            <MapView
+              style={styles.mapImage}
+              initialRegion={{
+                latitude: lat,
+                longitude: lng,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
+              }}
+            >
+              <Marker coordinate={{ latitude: lat, longitude: lng }} />
+            </MapView>
+          ) : (
+            <View style={[styles.mapImage, { backgroundColor: '#ddd', justifyContent: 'center', alignItems: 'center' }]}>
+              <Text style={{ color: '#888' }}>Mapa no disponible</Text>
+            </View>
+          )}
         </View>
 
         {/* ── INFO CARD ── */}
@@ -201,7 +220,7 @@ export const StoreDetailScreen = ({ navigation, route }: any) => {
               <View style={{flex: 1}}>
                  <Text style={styles.infoText}>Horario sujeto a cambios.</Text>
                  <Text style={[styles.openText, { color: store.is_active ? '#2ECC71' : '#E74C3C' }]}>
-                   {store.is_active ? 'Abierto ahora' : 'Cerrado temporalmente'}
+                    {store.is_active ? 'Abierto ahora' : 'Cerrado temporalmente'}
                  </Text>
               </View>
             </View>
