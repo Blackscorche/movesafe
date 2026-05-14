@@ -16,7 +16,7 @@ import { colors } from "../../utils/theme";
 import { OTPInput } from "../../components/common/OTPInput";
 import { useAuthContext } from "../../context/AuthContext";
 
-export const OTPScreen = ({ navigation, route }: any) => {
+const OTPScreen = ({ navigation, route }: any) => {
   const { identifier, type } = route.params;
   const { loginWithOtp, loginWithEmailOtp, sendOtp: sendPhoneOtp, sendEmailOtp } = useAuthContext();
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -99,6 +99,7 @@ export const OTPScreen = ({ navigation, route }: any) => {
       </View>
 
       <View style={styles.bottomCard}>
+        <View style={styles.accentTopLine} />
         <View style={styles.accentArc} />
         
         {isConfirmed ? (
@@ -216,12 +217,20 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     right: 0,
-    width: 110,
-    height: 110,
+    width: 100,
+    height: 100,
     borderTopRightRadius: 100,
-    borderTopWidth: 8,
-    borderRightWidth: 8,
+    borderTopWidth: 5,
+    borderRightWidth: 5,
     borderColor: colors.primary,
+  },
+  accentTopLine: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 5,
+    backgroundColor: colors.primary,
   },
   iconCircle: {
     width: 110,
@@ -307,3 +316,5 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold' 
   },
 });
+
+export default OTPScreen;

@@ -188,25 +188,25 @@ export const ProfileScreen = ({ navigation }: any) => {
             </View>
           </View>
 
-        {/* ══════ GLASSY PROGRESS SECTION ══════ */}
-        <View style={styles.glassContainer}>
-          <View style={styles.levelRow}>
-            <View style={styles.levelLeft}>
-              <View style={styles.trophyCircle}>
-                <Text style={styles.levelTrophy}>🏆</Text>
+          {/* ══════ GLASSY PROGRESS SECTION ══════ */}
+          <View style={styles.glassContainer}>
+            <View style={styles.levelRow}>
+              <View style={styles.levelLeft}>
+                <View style={styles.trophyCircle}>
+                  <Text style={styles.levelTrophy}>🏆</Text>
+                </View>
+                <View>
+                  <Text style={styles.levelLabel}>Nivel {level}</Text>
+                  <Text style={styles.xpSubText}>{xpNext - xp} XP para el siguiente nivel</Text>
+                </View>
               </View>
-              <View>
-                <Text style={styles.levelLabel}>Nivel {level}</Text>
-                <Text style={styles.xpSubText}>{xpNext - xp} XP para el siguiente nivel</Text>
-              </View>
+              <Text style={styles.xpLabel}>{xp} / {xpNext} XP</Text>
             </View>
-            <Text style={styles.xpLabel}>{xp} / {xpNext} XP</Text>
-          </View>
 
-          <View style={styles.xpTrack}>
-            <View style={[styles.xpFill, { width: `${xpPct}%` }]} />
+            <View style={styles.xpTrack}>
+              <View style={[styles.xpFill, { width: `${xpPct}%` }]} />
+            </View>
           </View>
-        </View>
         </View>
 
         {/* ══════ STAT CARDS ══════ */}
@@ -267,7 +267,7 @@ export const ProfileScreen = ({ navigation }: any) => {
         <View style={styles.missionCard}>
           {missions.length > 0 ? missions.map((m, i) => (
             <View key={m.id} style={[styles.missionRow, i < missions.length - 1 && styles.missionBorder]}>
-               <View style={[styles.missionIcon, { backgroundColor: m.completed ? C.greenTint : C.orangeTint }]}>
+              <View style={[styles.missionIcon, { backgroundColor: m.completed ? C.greenTint : C.orangeTint }]}>
                 <Text style={styles.missionEmoji}>{m.icon || '🎯'}</Text>
               </View>
               <View style={styles.missionBody}>
@@ -281,7 +281,7 @@ export const ProfileScreen = ({ navigation }: any) => {
                 </View>
                 {!m.completed && (
                   <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: `${Math.round((m.progress/m.total)*100)}%`, backgroundColor: C.orange }]} />
+                    <View style={[styles.progressFill, { width: `${Math.round((m.progress / m.total) * 100)}%`, backgroundColor: C.orange }]} />
                   </View>
                 )}
               </View>
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
     textAlign: 'center',
   },
-  
+
   // ── Badges ──
   badgesRow: {
     flexDirection: 'row',
