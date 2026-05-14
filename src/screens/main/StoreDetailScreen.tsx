@@ -183,31 +183,6 @@ export const StoreDetailScreen = ({ navigation, route }: any) => {
   );
 };
 
-        {/* ── COUPONS SECTION ── */}
-        <View style={styles.couponsSection}>
-          <View style={styles.couponsHeader}>
-            <Text style={styles.couponsTitle}>Cupones disponibles</Text>
-            <View style={styles.couponsBadge}>
-              <Text style={styles.couponsBadgeText}>{MOCK_COUPONS.length} ofertas</Text>
-            </View>
-          </View>
-
-          {MOCK_COUPONS.map((coupon) => (
-            <CouponCard
-              key={coupon.id}
-              coupon={{...coupon, storeId: store.id, storeName: store.business_name}}
-              onRedeem={() =>
-                navigation.navigate('QRScreen', { couponId: coupon.id })
-              }
-            />
-          ))}
-        </View>
-
-      </ScrollView>
-    </View>
-  );
-};
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
