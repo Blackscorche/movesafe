@@ -145,9 +145,10 @@ export const ProfileScreen = ({ navigation }: any) => {
           profileApi.getMissions()
         ]);
         setDashboard(dashRes.data);
-        setMissions(missionRes.data);
+        setMissions(missionRes.data || MISSIONS);
       } catch (e) {
         console.error('Error loading profile data:', e);
+        setMissions(MISSIONS); // Fallback to mock data on 404
       } finally {
         setLoading(false);
       }
@@ -187,11 +188,17 @@ export const ProfileScreen = ({ navigation }: any) => {
             </View>
           </View>
 
-          {/* Level + XP */}
+        {/* ══════ GLASSY PROGRESS SECTION ══════ */}
+        <View style={styles.glassContainer}>
           <View style={styles.levelRow}>
             <View style={styles.levelLeft}>
-              <Text style={styles.levelTrophy}>🏆</Text>
-              <Text style={styles.levelLabel}>Nivel {level}</Text>
+              <View style={styles.trophyCircle}>
+                <Text style={styles.levelTrophy}>🏆</Text>
+              </View>
+              <View>
+                <Text style={styles.levelLabel}>Nivel {level}</Text>
+                <Text style={styles.xpSubText}>{xpNext - xp} XP para el siguiente nivel</Text>
+              </View>
             </View>
             <Text style={styles.xpLabel}>{xp} / {xpNext} XP</Text>
           </View>
@@ -199,7 +206,7 @@ export const ProfileScreen = ({ navigation }: any) => {
           <View style={styles.xpTrack}>
             <View style={[styles.xpFill, { width: `${xpPct}%` }]} />
           </View>
-          <Text style={styles.xpSub}>{xpNext - xp} XP para nivel {level + 1}</Text>
+        </View>
         </View>
 
         {/* ══════ STAT CARDS ══════ */}
@@ -472,45 +479,69 @@ const styles = StyleSheet.create({
   headerAvatarEmoji: {
     fontSize: 26,
   },
+  // ── Glassy Container ──
+  glassContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 24,
+    padding: 20,
+    marginHorizontal: 14,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  trophyCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  xpSubText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 11,
+    fontFamily: 'Poppins-Regular',
+    marginTop: 2,
+  },
   levelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   levelLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
-  levelTrophy: { fontSize: 14 },
+  levelTrophy: { fontSize: 16 },
   levelLabel: {
-    color: C.orange,
-    fontSize: 14,
-    fontFamily: 'Poppins-SemiBold',
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontFamily: 'Poppins-Bold',
+    fontWeight: '700',
   },
   xpLabel: {
-    color: C.textWhiteDim,
-    fontSize: 12,
-    fontFamily: 'Poppins-Regular',
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: 'Poppins-SemiBold',
+    opacity: 0.9,
   },
   xpTrack: {
-    height: 7,
-    backgroundColor: '#2C2C2C',
-    borderRadius: 4,
+    height: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 5,
     overflow: 'hidden',
-    marginBottom: 6,
   },
   xpFill: {
     height: '100%',
     backgroundColor: C.orange,
-    borderRadius: 4,
-  },
-  xpSub: {
-    color: C.textWhiteDim,
-    fontSize: 11,
-    fontFamily: 'Poppins-Regular',
+    borderRadius: 5,
   },
 
   // ── Stats ──

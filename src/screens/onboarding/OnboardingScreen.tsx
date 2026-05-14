@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,13 +9,37 @@ import {
   TouchableOpacity,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Animated,
 } from "react-native";
-import { colors } from "../../utils/theme";
-import { ONBOARDING_SLIDES } from "../../utils/constants";
-import { storage } from "../../services/storage";
+// import { storage } from "../../services/storage"; // Uncomment when ready
 
 const { width } = Dimensions.get("window");
+
+const SLIDES_DATA = [
+  {
+    key: "walk",
+    title: "Camina",
+    subtitle: "Cada paso cuenta",
+    body: "Conecta tu app de salud y gana Guacoins por alcanzar tus metas diarias de pasos.",
+    image: require("../../assets/images/onboarding-walk.png"),
+    accent: "#FF7B4C",
+  },
+  {
+    key: "earn",
+    title: "Gana",
+    subtitle: "Binestar y recompensas reales",
+    body: "Acumula Guacoins todos los días. Mantén rachas para ganar bonificaciones especiales.",
+    image: require("../../assets/images/onboarding-run.png"),
+    accent: "#FF70A6",
+  },
+  {
+    key: "redeem",
+    title: "Canjea",
+    subtitle: "Ahorra en tus comercios",
+    body: "Usa tus Guacoins para obtener descuentos en farmacias, supermercados y más.",
+    image: require("../../assets/images/onboarding-redeem.png"),
+    accent: "#00C69C",
+  },
+];
 
 export const OnboardingScreen = ({ navigation }: any) => {
   const flatListRef = useRef<FlatList>(null);
@@ -27,58 +51,60 @@ export const OnboardingScreen = ({ navigation }: any) => {
   };
 
   const goNext = async () => {
-    if (currentIndex < ONBOARDING_SLIDES.length - 1) {
+    if (currentIndex < SLIDES_DATA.length - 1) {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
     } else {
-      await storage.setHasOnboarded(true);
+      // await storage.setHasOnboarded(true);
       navigation.replace("Auth");
     }
   };
 
   const skip = async () => {
-    await storage.setHasOnboarded(true);
+    // await storage.setHasOnboarded(true);
     navigation.replace("Auth");
   };
 
-  const slide = ONBOARDING_SLIDES[currentIndex];
+  const slide = SLIDES_DATA[currentIndex];
 
   return (
     <View style={styles.container}>
-      {/* SKIP — sits above everything */}
       <TouchableOpacity style={styles.skipButton} onPress={skip}>
         <Text style={styles.skipText}>Omitir</Text>
       </TouchableOpacity>
 
       <FlatList
         ref={flatListRef}
-        data={ONBOARDING_SLIDES}
+        data={SLIDES_DATA}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onScroll}
         renderItem={({ item }) => (
           <View style={styles.slide}>
-            {/* IMAGE */}
             <View style={styles.imageContainer}>
-              <Image
-                source={item.image}
-                style={[
-                  styles.image,
-                  item.key === 'earn' && styles.imageCurveBottomLeft,
-                  item.key === 'redeem' && styles.imageCurveBottomRight,
-                ]}
-                resizeMode="cover"
-              />
+              {/* Outer Wrapper for the Accent Line */}
               <View
                 style={[
-                  { zIndex: 10 },
-                  item.key === 'earn' ? styles.accentBottomLeft : item.key === 'redeem' ? styles.accentBottomRight : styles.accentTopRight,
-                  { borderColor: item.accent }
+                  styles.accentWrapper,
+                  { backgroundColor: item.accent },
+                  item.key === 'walk' && styles.accentWalk,
+                  item.key === 'earn' && styles.accentEarn,
+                  item.key === 'redeem' && styles.accentRedeem,
                 ]}
-              />
+              >
+                <Image
+                  source={item.image}
+                  style={[
+                    styles.image,
+                    item.key === 'walk' && styles.imageWalk,
+                    item.key === 'earn' && styles.imageEarn,
+                    item.key === 'redeem' && styles.imageRedeem,
+                  ]}
+                  resizeMode="cover"
+                />
+              </View>
             </View>
 
-            {/* TEXT */}
             <View style={styles.textContainer}>
               <Text style={styles.title}>{item.title}</Text>
               <Text style={[styles.subtitle, { color: item.accent }]}>
@@ -91,11 +117,9 @@ export const OnboardingScreen = ({ navigation }: any) => {
         keyExtractor={(item) => item.key}
       />
 
-      {/* FOOTER */}
       <View style={styles.footer}>
-        {/* DOTS */}
         <View style={styles.dots}>
-          {ONBOARDING_SLIDES.map((_, index) => (
+          {SLIDES_DATA.map((_, index) => (
             <View
               key={index}
               style={[
@@ -109,16 +133,13 @@ export const OnboardingScreen = ({ navigation }: any) => {
           ))}
         </View>
 
-        {/* PILL BUTTON */}
         <TouchableOpacity
           style={[styles.nextButton, { backgroundColor: slide.accent }]}
           onPress={goNext}
           activeOpacity={0.85}
         >
           <Text style={styles.nextButtonText}>
-            {currentIndex === ONBOARDING_SLIDES.length - 1
-              ? "Comenzar  ›"
-              : "Siguiente  ›"}
+            {currentIndex === SLIDES_DATA.length - 1 ? "Comenzar ›" : "Siguiente ›"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -127,147 +148,42 @@ export const OnboardingScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#111111",
-  },
+  container: { flex: 1, backgroundColor: "#111111" },
+  skipButton: { position: "absolute", top: 52, right: 20, zIndex: 10, padding: 8 },
+  skipText: { color: "#FFFFFF", fontSize: 13, fontFamily: "Poppins-Regular" },
+  slide: { width, flex: 1 },
+  imageContainer: { width: "100%", height: "58%", marginTop: 90, position: "relative" },
 
-  // SKIP
-  skipButton: {
-    position: "absolute",
-    top: 52,
-    right: 20,
-    zIndex: 10,
-    padding: 8,
-  },
-  skipText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontFamily: "Poppins-Regular",
-  },
-
-  // SLIDE
-  slide: {
-    width,
-    flex: 1,
-  },
-
-  imageContainer: {
+  // The "Accent Line" logic: Wrapper provides the color, Image is slightly smaller
+  accentWrapper: {
+    height: "100%",
     width: "100%",
-    height: "58%",
-    marginTop: 90, // ← pushes image down, Omitir shows on dark bg above
-    position: "relative",
+    overflow: "hidden",
   },
   image: {
-    width: "100%",
     height: "100%",
-    borderTopRightRadius: 146,
-  },
-
-  imageCurveBottomLeft: {
-    borderTopRightRadius: 0,
-    borderBottomLeftRadius: 146,
-  },
-
-  imageCurveBottomRight: {
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 146,
-  },
-
-  accentTopRight: {
+    width: width - 8, // Leaves 8px for the accent
     position: "absolute",
-    top: 0,
-    bottom: 40,
-    right: 0,
-    width: 146,
-    borderTopRightRadius: 146,
-    borderTopWidth: 6,
-    borderRightWidth: 6,
   },
 
-  accentBottomLeft: {
-    position: "absolute",
-    top: 40,
-    bottom: 0,
-    left: 0,
-    width: 146,
-    borderBottomLeftRadius: 146,
-    borderBottomWidth: 6,
-    borderLeftWidth: 6,
-  },
+  // Slide-specific Curves & Alignment
+  accentWalk: { borderTopRightRadius: 146 },
+  imageWalk: { borderTopRightRadius: 146, left: 0 },
 
-  accentBottomRight: {
-    position: "absolute",
-    top: 40,
-    bottom: 0,
-    right: 0,
-    width: 146,
-    borderBottomRightRadius: 146,
-    borderBottomWidth: 6,
-    borderRightWidth: 6,
-  },
+  accentEarn: { borderBottomLeftRadius: 146 },
+  imageEarn: { borderBottomLeftRadius: 146, right: 0 },
 
-  // TEXT
-  textContainer: {
-    flex: 1,
-    paddingHorizontal: 28,
-    paddingTop: 24,
-    alignItems: "center",
-  },
-  title: {
-    color: "#FFFFFF",
-    fontSize: 30,
-    fontFamily: "Poppins-Bold",
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 15,
-    fontFamily: "Poppins-SemiBold",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  body: {
-    color: "#888888",
-    fontSize: 13,
-    fontFamily: "Poppins-Regular",
-    textAlign: "center",
-    lineHeight: 22,
-    maxWidth: 250,
-  },
+  accentRedeem: { borderBottomRightRadius: 146 },
+  imageRedeem: { borderBottomRightRadius: 146, left: 0 },
 
-  // FOOTER
-  footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    gap: 18,
-    alignItems: "center",
-  },
-
-  // DOTS
-  dots: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#444444",
-  },
-
-  // BUTTON
-  nextButton: {
-    width: "100%",
-    paddingVertical: 16,
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  nextButtonText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontFamily: "Poppins-SemiBold",
-    letterSpacing: 0.2,
-  },
+  // Text & UI
+  textContainer: { flex: 1, paddingHorizontal: 28, paddingTop: 24, alignItems: "center" },
+  title: { color: "#FFFFFF", fontSize: 32, fontFamily: "Poppins-Bold", marginBottom: 4 },
+  subtitle: { fontSize: 16, fontFamily: "Poppins-SemiBold", marginBottom: 12 },
+  body: { color: "#888888", fontSize: 14, fontFamily: "Poppins-Regular", textAlign: "center", lineHeight: 22 },
+  footer: { paddingHorizontal: 24, paddingBottom: 40, alignItems: "center", gap: 20 },
+  dots: { flexDirection: "row", gap: 8 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#333333" },
+  nextButton: { width: "100%", paddingVertical: 18, borderRadius: 100, alignItems: "center" },
+  nextButtonText: { color: "#FFFFFF", fontSize: 16, fontFamily: "Poppins-SemiBold" },
 });

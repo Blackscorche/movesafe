@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSteps } from '../../hooks/useSteps';
 import { AppBar } from '../../components/common/AppBar';
 import { notifyExpiryWarning } from '../../services/notifications';
+import { useHealthContext } from '../../context/HealthContext';
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const colors = {

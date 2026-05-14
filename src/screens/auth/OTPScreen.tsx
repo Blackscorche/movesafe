@@ -99,7 +99,6 @@ export const OTPScreen = ({ navigation, route }: any) => {
       </View>
 
       <View style={styles.bottomCard}>
-        <View style={styles.accentTopLine} />
         <View style={styles.accentArc} />
         
         {isConfirmed ? (
@@ -217,20 +216,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     right: 0,
-    width: 100,
-    height: 100,
+    width: 110,
+    height: 110,
     borderTopRightRadius: 100,
-    borderTopWidth: 5,
-    borderRightWidth: 5,
+    borderTopWidth: 8,
+    borderRightWidth: 8,
     borderColor: colors.primary,
-  },
-  accentTopLine: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 5,
-    backgroundColor: colors.primary,
   },
   iconCircle: {
     width: 110,
