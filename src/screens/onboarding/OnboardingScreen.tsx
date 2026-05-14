@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Animated,
 } from "react-native";
 import { colors } from "../../utils/theme";
 import { ONBOARDING_SLIDES } from "../../utils/constants";
@@ -70,9 +71,9 @@ export const OnboardingScreen = ({ navigation }: any) => {
               />
               <View
                 style={[
-                  styles.imageAccentArc,
+                  { zIndex: 10 },
                   item.key === 'earn' ? styles.accentBottomLeft : item.key === 'redeem' ? styles.accentBottomRight : styles.accentTopRight,
-                  { borderColor: item.accent },
+                  { borderColor: item.accent }
                 ]}
               />
             </View>
@@ -176,34 +177,34 @@ const styles = StyleSheet.create({
   accentTopRight: {
     position: "absolute",
     top: 0,
+    bottom: 40,
     right: 0,
     width: 146,
-    height: 146,
     borderTopRightRadius: 146,
-    borderTopWidth: 3.5,
-    borderRightWidth: 3.5,
+    borderTopWidth: 6,
+    borderRightWidth: 6,
   },
 
   accentBottomLeft: {
     position: "absolute",
+    top: 40,
     bottom: 0,
     left: 0,
     width: 146,
-    height: 146,
     borderBottomLeftRadius: 146,
-    borderBottomWidth: 3.5,
-    borderLeftWidth: 3.5,
+    borderBottomWidth: 6,
+    borderLeftWidth: 6,
   },
 
   accentBottomRight: {
     position: "absolute",
+    top: 40,
     bottom: 0,
     right: 0,
     width: 146,
-    height: 146,
     borderBottomRightRadius: 146,
-    borderBottomWidth: 3.5,
-    borderRightWidth: 3.5,
+    borderBottomWidth: 6,
+    borderRightWidth: 6,
   },
 
   // TEXT

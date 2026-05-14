@@ -13,8 +13,10 @@ export const useGuaCoins = () => {
       setIsLoading(true);
       const response = await guacoinsApi.getBalance();
       setDashboard(response.data);
+      return response.data;
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Error al cargar balance');
+      return null;
     } finally {
       setIsLoading(false);
     }

@@ -19,6 +19,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSteps } from '../../hooks/useSteps';
 import { AppBar } from '../../components/common/AppBar';
+import { notifyExpiryWarning } from '../../services/notifications';
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const colors = {
@@ -130,6 +131,7 @@ export const HomeScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { stepsToday, goal, percentage, todaySteps, sync, isSyncing } = useSteps();
   const { dashboard, fetchBalance, isLoading: isDashboardLoading } = useGuaCoins();
+  const { hasConflict, resolveConflict } = useHealthContext();
 
   useEffect(() => { 
     sync(); 
@@ -137,7 +139,10 @@ export const HomeScreen = ({ navigation }: any) => {
   }, []);
 
   const onRefresh = useCallback(async () => { 
-    await Promise.all([sync(), fetchBalance()]);
+    const [_, balanceRes] = await Promise.all([sync(), fetchBalance()]);
+    if (balanceRes && balanceRes.expiring_amount > 0 && balanceRes.expiring_days <= 7) {
+      notifyExpiryWarning(balanceRes.expiring_amount, balanceRes.expiring_days);
+    }
   }, [sync, fetchBalance]);
 
   return (
@@ -150,6 +155,30 @@ export const HomeScreen = ({ navigation }: any) => {
         refreshControl={<RefreshControl refreshing={isSyncing || isDashboardLoading} onRefresh={onRefresh} tintColor={colors.primary} />}
         showsVerticalScrollIndicator={false}
       >
+
+        {hasConflict && (
+          <View style={styles.conflictCard}>
+            <Text style={styles.conflictTitle}>⚠️ Conflicto de pasos</Text>
+            <Text style={styles.conflictDesc}>
+              Encontramos una diferencia entre tus pasos locales ({hasConflict.localSteps}) 
+              y los del servidor ({hasConflict.serverSteps}). ¿Cuál deseas usar?
+            </Text>
+            <View style={styles.conflictButtons}>
+              <TouchableOpacity 
+                style={[styles.conflictBtn, { backgroundColor: colors.primary }]}
+                onPress={() => resolveConflict(true)}
+              >
+                <Text style={styles.conflictBtnText}>Usar Locales</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.conflictBtn, { backgroundColor: '#333' }]}
+                onPress={() => resolveConflict(false)}
+              >
+                <Text style={styles.conflictBtnText}>Usar Servidor</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         <StepsWidget
           steps={stepsToday}
@@ -183,6 +212,14 @@ export const HomeScreen = ({ navigation }: any) => {
               <Text style={styles.balanceValue}>
                 {(dashboard?.wallet_balance ?? 0).toLocaleString()} <Text style={styles.balanceGC}>GC</Text>
               </Text>
+              {dashboard && dashboard.expiring_amount > 0 && (
+                <View style={[styles.expiryWarning, dashboard.expiring_days <= 7 && styles.expiryCritical]}>
+                  <Text style={styles.expiryText}>
+                    {dashboard.expiring_days <= 7 ? '⚠️ ' : ''}
+                    {dashboard.expiring_amount} GC vencen en {dashboard.expiring_days} días
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
 
             {/* Challenge Card */}
@@ -321,6 +358,21 @@ const styles = StyleSheet.create({
   balanceTopLabel: { fontSize: 11, color: '#fff', fontWeight: '600', lineHeight: 14 },
   balanceValue: { fontSize: 36, fontWeight: '900', color: '#fff' },
   balanceGC: { fontSize: 16, opacity: 0.8 },
+  expiryWarning: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  expiryCritical: {
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  expiryText: {
+    color: '#fff',
+    fontSize: 10,
+    fontFamily: 'Poppins-Medium',
+  },
 
   challengeCard: { borderRadius: 24, height: 115, overflow: 'hidden', position: 'relative', backgroundColor: '#000' },
   lockOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center', zIndex: 1 },
@@ -440,6 +492,45 @@ const styles = StyleSheet.create({
   tipTitle: { fontSize: 14, fontWeight: '900', marginBottom: 2 },
   tipMessage: { fontSize: 12, color: '#555', lineHeight: 17 },
   tipParrot: { width: 95, height: 95, position: 'absolute', right: -5, bottom: -5 },
+  
+  // Conflict Styles
+  conflictCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: colors.danger,
+  },
+  conflictTitle: {
+    fontSize: 16,
+    fontFamily: 'Poppins-Bold',
+    color: colors.danger,
+    marginBottom: 4,
+  },
+  conflictDesc: {
+    fontSize: 12,
+    color: '#444',
+    fontFamily: 'Poppins-Regular',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  conflictButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  conflictBtn: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  conflictBtnText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontFamily: 'Poppins-Bold',
+  },
 });
 
 export default HomeScreen;

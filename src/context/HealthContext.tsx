@@ -1,7 +1,11 @@
-import React, { createContext, useContext, useReducer, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, ReactNode, useState, useEffect } from 'react';
+import NetInfo from '@react-native-community/netinfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
 import { StepData } from '../types/models';
 import { healthKit } from '../services/healthKit';
 import { stepsApi } from '../api/steps';
+import { notifyEmission } from '../services/notifications';
 
 interface HealthState {
   todaySteps: StepData | null;
@@ -42,12 +46,30 @@ interface HealthContextValue extends HealthState {
   syncSteps: () => Promise<void>;
   requestPermission: () => Promise<boolean>;
   fetchWeeklyHistory: () => Promise<void>;
+  isOffline: boolean;
+  hasConflict: { serverSteps: number; localSteps: number } | null;
+  resolveConflict: (useLocal: boolean) => Promise<void>;
 }
 
 const HealthContext = createContext<HealthContextValue | undefined>(undefined);
 
 export const HealthProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(healthReducer, initialState);
+  const [isOffline, setIsOffline] = useState(false);
+  const [hasConflict, setHasConflict] = useState<{ serverSteps: number; localSteps: number } | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOffline(!state.isConnected);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const calculateGCEarned = (steps: number) => {
+    const base = Math.floor(steps / 1000);
+    const cap = isOffline ? 300 : 60; // 300 GC offline cap
+    return Math.min(base, cap); 
+  };
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     const granted = await healthKit.requestPermissions();
@@ -59,6 +81,8 @@ export const HealthProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'SET_SYNCING', payload: true });
     try {
       const data = await healthKit.getStepCountToday();
+      const gcEarned = calculateGCEarned(data.steps);
+      
       const stepData: StepData = {
         date: new Date().toISOString().split('T')[0],
         steps: data.steps,
@@ -67,18 +91,52 @@ export const HealthProvider = ({ children }: { children: ReactNode }) => {
         distance: data.distance,
         calories: data.calories,
         minutes: Math.floor(data.steps / 130),
-        gcEarned: data.steps >= 10000 ? 10 : 0,
+        gcEarned: gcEarned,
       };
       dispatch({ type: 'SET_TODAY', payload: stepData });
-      if (data.steps > 0) {
-        await stepsApi.sync(data.steps);
+
+      if (isOffline) {
+        const pending = await AsyncStorage.getItem('pending_steps') || '0';
+        const total = parseInt(pending) + data.steps;
+        await AsyncStorage.setItem('pending_steps', total.toString());
+      } else {
+        if (data.steps > 0) {
+          try {
+            if (gcEarned > 0) notifyEmission(gcEarned);
+            await stepsApi.sync(data.steps);
+            
+            const pending = await AsyncStorage.getItem('pending_steps');
+            if (pending && parseInt(pending) > 0) {
+              await stepsApi.sync(parseInt(pending));
+              await AsyncStorage.removeItem('pending_steps');
+            }
+          } catch (e: any) {
+            if (e.response?.status === 409) {
+              setHasConflict({
+                serverSteps: e.response.data.server_steps,
+                localSteps: data.steps
+              });
+            }
+          }
+        }
       }
     } catch {
       // Handle sync error silently
     } finally {
       dispatch({ type: 'SET_SYNCING', payload: false });
     }
-  }, []);
+  }, [isOffline]);
+
+  const resolveConflict = useCallback(async (useLocal: boolean) => {
+    if (!hasConflict) return;
+    try {
+      await stepsApi.resolve(useLocal ? hasConflict.localSteps : hasConflict.serverSteps);
+      setHasConflict(null);
+      syncSteps();
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo resolver el conflicto.');
+    }
+  }, [hasConflict, syncSteps]);
 
   const fetchWeeklyHistory = useCallback(async () => {
     const today = new Date();
@@ -87,6 +145,8 @@ export const HealthProvider = ({ children }: { children: ReactNode }) => {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       const data = await healthKit.getStepCount(date, date);
+      const gcEarned = calculateGCEarned(data.steps);
+
       days.push({
         date: date.toISOString().split('T')[0],
         steps: data.steps,
@@ -95,15 +155,15 @@ export const HealthProvider = ({ children }: { children: ReactNode }) => {
         distance: data.distance,
         calories: data.calories,
         minutes: Math.floor(data.steps / 130),
-        gcEarned: data.steps >= 10000 ? 10 : 0,
+        gcEarned: gcEarned,
       });
     }
     dispatch({ type: 'SET_WEEKLY', payload: days });
-  }, []);
+  }, [isOffline]);
 
   return (
     <HealthContext.Provider
-      value={{ ...state, syncSteps, requestPermission, fetchWeeklyHistory }}
+      value={{ ...state, syncSteps, requestPermission, fetchWeeklyHistory, isOffline, hasConflict, resolveConflict }}
     >
       {children}
     </HealthContext.Provider>

@@ -102,9 +102,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const signIn = useCallback(async (user: User, tokens: AuthTokens) => {
+  const signIn = useCallback(async (user: User, tokens: AuthTokens, totpSecret?: string) => {
     await SecureStore.setItemAsync('access_token', tokens.accessToken);
     await SecureStore.setItemAsync('refresh_token', tokens.refreshToken);
+    if (totpSecret) {
+      await SecureStore.setItemAsync('local_totp_secret', totpSecret);
+    }
     dispatch({ type: 'SIGN_IN', payload: { user, tokens } });
     registerPushToken();
   }, []);
@@ -183,7 +186,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         level: 1, xp: 0, xpToNextLevel: 100, joinedAt: '' 
       };
 
-      await signIn(user, tokens);
+      await signIn(user, tokens, response.data.local_totp_secret);
       return { ok: true, isNewUser: response.data.is_new_user };
     } catch (error: any) {
       return { ok: false, error: error.response?.data?.detail || 'Error al iniciar sesión' };
@@ -202,7 +205,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         level: 1, xp: 0, xpToNextLevel: 100, joinedAt: '' 
       };
 
-      await signIn(user, tokens);
+      await signIn(user, tokens, response.data.local_totp_secret);
       return { ok: true, isNewUser: response.data.is_new_user };
     } catch (error: any) {
       return { ok: false, error: error.response?.data?.detail || 'Error al iniciar sesión' };

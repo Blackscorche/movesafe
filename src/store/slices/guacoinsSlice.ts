@@ -5,12 +5,14 @@ interface GuaCoinsState {
   balance: GuaCoinBalance | null;
   transactions: Transaction[];
   filter: string;
+  pendingRating: { redemptionId: string; storeName: string } | null;
 }
 
 const initialState: GuaCoinsState = {
   balance: null,
   transactions: [],
   filter: 'todas',
+  pendingRating: null,
 };
 
 const guacoinsSlice = createSlice({
@@ -26,8 +28,11 @@ const guacoinsSlice = createSlice({
     setFilter: (state, action: PayloadAction<string>) => {
       state.filter = action.payload;
     },
+    setPendingRating: (state, action: PayloadAction<{ redemptionId: string; storeName: string } | null>) => {
+      state.pendingRating = action.payload;
+    },
   },
 });
 
-export const { setBalance, setTransactions, setFilter } = guacoinsSlice.actions;
+export const { setBalance, setTransactions, setFilter, setPendingRating } = guacoinsSlice.actions;
 export default guacoinsSlice.reducer;

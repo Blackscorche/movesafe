@@ -7,12 +7,21 @@ import {
   StatusBar,
   SafeAreaView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
+import { useSelector, useDispatch } from 'react-redux';
 import { colors } from '../../utils/theme';
 import { AppButton } from '../../components/common/AppButton';
 import QRCode from 'react-native-qrcode-svg';
 import { QR_REFRESH_INTERVAL_SECONDS } from '../../utils/constants';
 import { qrApi } from '../../api/qr';
+import { redemptionsApi } from '../../api/redemptions';
+import { setPendingRating } from '../../store/slices/guacoinsSlice';
+import * as ScreenCapture from 'expo-screen-capture';
+import { notifyRedemptionConfirmed } from '../../services/notifications';
+import { useHealthContext } from '../../context/HealthContext';
+import * as SecureStore from 'expo-secure-store';
+import * as OTPAuth from 'otpauth';
 
 // ─── Colour tokens (dark screen) ─────────────────────────────────────────────
 const C = {
@@ -30,11 +39,37 @@ const C = {
 };
 
 export const QRScreen = ({ navigation, route }: any) => {
+  ScreenCapture.usePreventScreenCapture();
+  const { coupon } = route.params;
+  const dispatch = useDispatch();
+  const { pendingRating } = useSelector((state: any) => state.guacoins);
+  const { isOffline } = useHealthContext();
+
   const [timer, setTimer] = useState(QR_REFRESH_INTERVAL_SECONDS);
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState(false);
+  const [redemptionId, setRedemptionId] = useState<string | null>(null);
+  const [overallTimeout, setOverallTimeout] = useState(120);
+
+  // Rating state for deferred mandatory block
+  const [localRating, setLocalRating] = useState(0);
+  const [submittingRating, setSubmittingRating] = useState(false);
+
+  const generateOfflineCode = useCallback(async () => {
+    const secret = await SecureStore.getItemAsync('local_totp_secret');
+    if (secret) {
+      const totp = new OTPAuth.TOTP({ secret: OTPAuth.Secret.fromBase32(secret) });
+      setTotpCode(totp.generate());
+      setTimer(30);
+    }
+  }, []);
 
   const generateCode = useCallback(async () => {
+    if (isOffline) {
+      generateOfflineCode();
+      return;
+    }
     setLoadingQr(true);
     try {
       const res = await qrApi.generate();
@@ -47,9 +82,51 @@ export const QRScreen = ({ navigation, route }: any) => {
     }
   }, []);
 
+  const initializeRedemption = useCallback(async () => {
+    if (pendingRating) return;
+    try {
+      const res = await redemptionsApi.reserve(coupon.id);
+      setRedemptionId(res.data.id);
+      generateCode();
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo iniciar el canje. Inténtalo de nuevo.');
+      navigation.goBack();
+    }
+  }, [coupon.id, pendingRating, generateCode, navigation]);
+
   useEffect(() => {
-    generateCode();
-  }, []);
+    initializeRedemption();
+  }, [initializeRedemption]);
+
+  // Poll for status
+  useEffect(() => {
+    if (!redemptionId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await redemptionsApi.getStatus(redemptionId);
+        if (res.data.status === 'confirmed') {
+          clearInterval(pollInterval);
+          notifyRedemptionConfirmed(coupon.storeName, coupon.cost);
+          navigation.navigate('RedeemSuccess', {
+            couponId: coupon.id,
+            storeName: coupon.storeName,
+            gcSpent: coupon.cost,
+            discount: coupon.discount,
+            redemptionId: redemptionId,
+          });
+        } else if (res.data.status === 'cancelled' || res.data.status === 'expired') {
+          clearInterval(pollInterval);
+          Alert.alert('Canje cancelado', 'El canje ha expirado o fue cancelado.');
+          navigation.goBack();
+        }
+      } catch (e) {
+        // Silent poll error
+      }
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
+  }, [redemptionId, coupon, navigation]);
 
   useEffect(() => {
     if (timer <= 0) { generateCode(); return; }
@@ -57,20 +134,96 @@ export const QRScreen = ({ navigation, route }: any) => {
       setTimer(prev => prev - 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, [timer]);
+  }, [timer, generateCode]);
 
-  const qrValue = qrCode ? `movesave://redeem/${qrCode}` : 'loading';
+  useEffect(() => {
+    if (overallTimeout <= 0) {
+      if (redemptionId) redemptionsApi.cancel(redemptionId).catch(() => {});
+      navigation.goBack();
+      return;
+    }
+    const interval = setInterval(() => {
+      setOverallTimeout(prev => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [overallTimeout, redemptionId, navigation]);
+
+  const handleCancel = async () => {
+    if (redemptionId) {
+      try { await redemptionsApi.cancel(redemptionId); } catch {}
+    }
+    navigation.goBack();
+  };
+
+  const submitDeferredRating = async () => {
+    if (localRating === 0) {
+      Alert.alert('Por favor', 'Selecciona una puntuación.');
+      return;
+    }
+    setSubmittingRating(true);
+    try {
+      await redemptionsApi.rate(pendingRating.redemptionId, localRating);
+      dispatch(setPendingRating(null));
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo enviar la calificación.');
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
+  if (pendingRating) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
+              <Text style={styles.closeText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.mandatoryCard}>
+            <Text style={styles.mandatoryEmoji}>⭐</Text>
+            <Text style={styles.mandatoryTitle}>Calificación pendiente</Text>
+            <Text style={styles.mandatorySubtitle}>
+              Para continuar, califica tu última experiencia en:
+              {'\n'}<Text style={{ color: C.primary, fontFamily: 'Poppins-Bold' }}>{pendingRating.storeName}</Text>
+            </Text>
+
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity key={star} onPress={() => setLocalRating(star)}>
+                  <Text style={[styles.star, localRating >= star && styles.starActive]}>
+                    {localRating >= star ? '★' : '☆'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <AppButton
+              title={submittingRating ? "Enviando..." : "Enviar y continuar"}
+              onPress={submitDeferredRating}
+              variant="primary"
+              disabled={submittingRating}
+              style={{ width: '100%' }}
+            />
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  const qrValue = qrCode ? `movesave://redeem/${qrCode}?r=${redemptionId}` : 'loading';
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.bg} />
       <SafeAreaView style={styles.safe}>
 
-        {/* ── Top bar: close (left) + timer (right) ── */}
         <View style={styles.topBar}>
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={() => navigation.goBack()}
+            onPress={handleCancel}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Text style={styles.closeText}>✕</Text>
@@ -83,70 +236,67 @@ export const QRScreen = ({ navigation, route }: any) => {
         </View>
 
         {/* ── Heading ── */}
-        <Text style={styles.title}>Muestra al comercio</Text>
+        <Text style={styles.title}>{isOffline ? 'Canje fuera de línea' : 'Muestra al comercio'}</Text>
         <Text style={styles.subtitle}>
-          Escanea el código QR para completar tu canje
+          {isOffline 
+            ? 'Dicta este código al comercio para completar tu canje'
+            : 'Escanea el código QR para completar tu canje'}
         </Text>
 
-        {/* ── QR card ── */}
+        {/* ── QR/TOTP card ── */}
         <View style={styles.qrOuter}>
           <View style={styles.qrCard}>
-            {loadingQr || !qrCode
-              ? <ActivityIndicator size="large" color={C.primary} style={{ width: 160, height: 160 }} />
-              : <QRCode value={qrValue} size={160} color="#000000" backgroundColor="#FFFFFF" />
-            }
+            {isOffline ? (
+              <View style={styles.totpContainer}>
+                <Text style={styles.totpLabel}>CÓDIGO DE SEGURIDAD</Text>
+                <Text style={styles.totpValue}>{totpCode || '------'}</Text>
+              </View>
+            ) : (
+              loadingQr || !qrCode
+                ? <ActivityIndicator size="large" color={C.primary} style={{ width: 160, height: 160 }} />
+                : <QRCode value={qrValue} size={160} color="#000000" backgroundColor="#FFFFFF" />
+            )}
           </View>
+          {isOffline && (
+            <View style={styles.offlineBadge}>
+              <Text style={styles.offlineBadgeText}>MODO OFFLINE</Text>
+            </View>
+          )}
         </View>
 
-        {/* ── Coupon detail card ── */}
         <View style={styles.detailCard}>
-          {/* Row 1 – discount + cost */}
           <View style={styles.detailRow}>
             <View style={styles.detailLeft}>
               <Text style={styles.detailLabel}>Cupón seleccionado</Text>
-              <Text style={styles.detailDiscount}>Descuento 15%</Text>
+              <Text style={styles.detailDiscount}>Descuento {coupon.discount}%</Text>
             </View>
             <View style={styles.detailRight}>
               <Text style={styles.detailLabel}>Costo</Text>
-              <Text style={styles.detailCost}>50 GC</Text>
+              <Text style={styles.detailCost}>{coupon.cost} GC</Text>
             </View>
           </View>
 
           <View style={styles.divider} />
 
-          {/* Row 2 – store */}
           <View style={styles.storeRow}>
             <Text style={styles.detailLabel}>Comercio</Text>
-            <Text style={styles.detailStore}>Farmacia Salud Plus</Text>
+            <Text style={styles.detailStore}>{coupon.storeName}</Text>
           </View>
         </View>
 
-        {/* ── CTA button ── */}
-        <AppButton
-          title="Simular escaneo (Demo)"
-          onPress={() =>
-            navigation.navigate('RedeemSuccess', {
-              couponId: '1',
-              storeName: 'Farmacia Salud Plus',
-              gcSpent: 50,
-              discount: 15,
-            })
-          }
-          variant="primary"
-          style={styles.simulateButton}
-        />
+        <View style={styles.waitingContainer}>
+          <ActivityIndicator color={C.primary} size="small" />
+          <Text style={styles.waitingText}>Esperando confirmación del comercio...</Text>
+        </View>
 
-        {/* ── Security note ── */}
         <Text style={styles.securityNote}>
-          El código se regenera automáticamente cada 30 segundos por seguridad
+          El código se regenera automáticamente cada 30 segundos. El canje expira en {overallTimeout}s si no se completa.
         </Text>
 
       </SafeAreaView>
     </View>
   );
 };
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -159,8 +309,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 4,
   },
-
-  // ── Top bar ────────────────────────────────────────────────────────────────
   topBar: {
     width: '100%',
     flexDirection: 'row',
@@ -202,8 +350,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Poppins-SemiBold',
   },
-
-  // ── Heading ────────────────────────────────────────────────────────────────
   title: {
     color: C.textPrimary,
     fontSize: 18,
@@ -219,8 +365,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     lineHeight: 18,
   },
-
-  // ── QR ─────────────────────────────────────────────────────────────────────
   qrOuter: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -235,9 +379,41 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 16,
     elevation: 6,
+    minWidth: 192,
+    minHeight: 192,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-
-  // ── Detail card ────────────────────────────────────────────────────────────
+  totpContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  totpLabel: {
+    color: '#000',
+    fontSize: 10,
+    fontFamily: 'Poppins-Bold',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  totpValue: {
+    color: colors.primary,
+    fontSize: 48,
+    fontFamily: 'Poppins-Bold',
+    letterSpacing: 4,
+  },
+  offlineBadge: {
+    backgroundColor: colors.danger,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginTop: -10,
+    zIndex: 10,
+  },
+  offlineBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontFamily: 'Poppins-Bold',
+  },
   detailCard: {
     width: '100%',
     backgroundColor: C.surface,
@@ -281,9 +457,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   storeRow: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   detailStore: {
     color: C.textPrimary,
@@ -291,14 +467,22 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold',
     marginTop: 2,
   },
-
-  // ── Button ─────────────────────────────────────────────────────────────────
-  simulateButton: {
+  waitingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: C.surfaceAlt,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     width: '100%',
-    marginBottom: 10,
+    marginBottom: 16,
   },
-
-  // ── Security note ──────────────────────────────────────────────────────────
+  waitingText: {
+    color: C.textSecondary,
+    fontSize: 12,
+    fontFamily: 'Poppins-Medium',
+  },
   securityNote: {
     color: C.textMuted,
     fontSize: 10,
@@ -307,4 +491,34 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     paddingHorizontal: 8,
   },
+  mandatoryCard: {
+    backgroundColor: C.surface,
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  mandatoryEmoji: { fontSize: 40, marginBottom: 16 },
+  mandatoryTitle: {
+    color: C.textPrimary,
+    fontSize: 20,
+    fontFamily: 'Poppins-Bold',
+    marginBottom: 8,
+  },
+  mandatorySubtitle: {
+    color: C.textSecondary,
+    fontSize: 14,
+    fontFamily: 'Poppins-Regular',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 32,
+  },
+  star: { fontSize: 36, color: '#333' },
+  starActive: { color: C.primary },
 });

@@ -20,6 +20,7 @@ export const OTPScreen = ({ navigation, route }: any) => {
   const { identifier, type } = route.params;
   const { loginWithOtp, loginWithEmailOtp, sendOtp: sendPhoneOtp, sendEmailOtp } = useAuthContext();
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(58);
   const [otpValue, setOtpValue] = useState<string | undefined>(undefined);

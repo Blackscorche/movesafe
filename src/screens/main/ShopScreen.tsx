@@ -97,7 +97,15 @@ export const ShopScreen = ({ navigation }: any) => {
             <Text style={styles.headerTitle}>Guaca Shop</Text>
             <Text style={styles.headerSubtitle}>Encuentra las mejores ofertas!</Text>
             <View style={styles.searchBox}>
-              <TextInput style={styles.searchInput} placeholder="Buscar comercios..." placeholderTextColor="#666" value={search} onChangeText={setSearch} returnKeyType="search" />
+              <TextInput 
+                style={styles.searchInput} 
+                placeholder="Buscar comercios..." 
+                placeholderTextColor="#666" 
+                value={search} 
+                onChangeText={setSearch} 
+                returnKeyType="search"
+                onSubmitEditing={() => fetchMerchants(activeTab, search)}
+              />
               <Image source={require('../../assets/images/maya-search.png')} style={styles.searchIcon} resizeMode="contain" />
             </View>
           </View>

@@ -232,6 +232,25 @@ export const ProfileScreen = ({ navigation }: any) => {
           </View>
         </View>
 
+        {/* ══════ BADGES / MEDALS ══════ */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Logros y Medallas</Text>
+        </View>
+
+        <View style={styles.badgesRow}>
+          <View style={[styles.badgeCard, xp >= 1000 && styles.badgeActive]}>
+            <Text style={styles.badgeEmoji}>{xp >= 1000 ? '🛡️' : '🔒'}</Text>
+            <Text style={styles.badgeName}>Caminante de Hierro</Text>
+            <Text style={styles.badgeDesc}>1,000 XP alcanzados</Text>
+          </View>
+
+          <View style={[styles.badgeCard, level >= 10 && styles.badgeActive]}>
+            <Text style={styles.badgeEmoji}>{level >= 10 ? '👑' : '🔒'}</Text>
+            <Text style={styles.badgeName}>Leyenda</Text>
+            <Text style={styles.badgeDesc}>Nivel 10 alcanzado</Text>
+          </View>
+        </View>
+
         {/* ══════ MISSIONS ══════ */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Misiones</Text>
@@ -350,6 +369,21 @@ export const ProfileScreen = ({ navigation }: any) => {
               <Text style={styles.menuEmoji}>⚙️</Text>
             </View>
             <Text style={styles.menuRowLabel}>Configuración</Text>
+            <Text style={styles.menuRowArrow}>›</Text>
+          </TouchableOpacity>
+
+          <View style={styles.menuDivider} />
+
+          {/* Reset Onboarding (Dev only) */}
+          <TouchableOpacity style={styles.menuRow} onPress={async () => {
+            const { storage } = await import('../../services/storage');
+            await storage.setHasOnboarded(false);
+            navigation.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
+          }}>
+            <View style={[styles.menuIconCircle, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
+              <Text style={styles.menuEmoji}>🔄</Text>
+            </View>
+            <Text style={styles.menuRowLabel}>Ver Onboarding (Test)</Text>
             <Text style={styles.menuRowArrow}>›</Text>
           </TouchableOpacity>
 
@@ -516,6 +550,41 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Poppins-Regular',
     textAlign: 'center',
+  },
+  
+  // ── Badges ──
+  badgesRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 14,
+    gap: 12,
+    marginBottom: 20,
+  },
+  badgeCard: {
+    flex: 1,
+    backgroundColor: C.darkCard,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    opacity: 0.5,
+  },
+  badgeActive: {
+    opacity: 1,
+    borderWidth: 1,
+    borderColor: C.yellow,
+  },
+  badgeEmoji: { fontSize: 32, marginBottom: 8 },
+  badgeName: {
+    color: C.textWhite,
+    fontSize: 12,
+    fontFamily: 'Poppins-Bold',
+    textAlign: 'center',
+  },
+  badgeDesc: {
+    color: C.textWhiteDim,
+    fontSize: 10,
+    fontFamily: 'Poppins-Regular',
+    textAlign: 'center',
+    marginTop: 4,
   },
 
   // ── Section header ──

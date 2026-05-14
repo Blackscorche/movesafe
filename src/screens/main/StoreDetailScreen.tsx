@@ -1,15 +1,20 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MapView, { Marker } from 'react-native-maps';
 import { colors } from '../../utils/theme';
 import { CouponCard } from '../../components/stores/CouponCard';
-import { Coupon } from '../../types/models';
+import { Coupon, MerchantDetail } from '../../types/models';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { storesApi } from '../../api/stores';
 
 const MOCK_COUPONS: Coupon[] = [
   {
@@ -48,112 +53,181 @@ const MOCK_COUPONS: Coupon[] = [
 ];
 
 export const StoreDetailScreen = ({ navigation, route }: any) => {
+  const insets = useSafeAreaInsets();
+  const { storeId } = route.params || {};
+  
+  const [store, setStore] = useState<MerchantDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!storeId) return;
+    storesApi.getById(storeId)
+      .then(res => setStore(res.data))
+      .catch(err => console.log('Error fetching store', err))
+      .finally(() => setLoading(false));
+  }, [storeId]);
+
+  if (loading) {
+    return (
+      <View style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#E45B25" />
+      </View>
+    );
+  }
+
+  if (!store) {
+    return (
+      <View style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: '#000', fontFamily: 'Poppins-Medium' }}>Comercio no encontrado</Text>
+        <TouchableOpacity style={{ marginTop: 16 }} onPress={() => navigation.goBack()}>
+          <Text style={{ color: '#E45B25', fontFamily: 'Poppins-Bold' }}>Volver</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const approvalPct = store.approval_pct ?? 0;
+  const positiveVotes = Math.round((approvalPct / 100) * store.total_votes);
+  const negativeVotes = store.total_votes - positiveVotes;
+
   return (
     <View style={styles.root}>
+      {/* HEADER (Mocked for Store Detail) */}
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity style={styles.profileBtn}>
+            <MaterialCommunityIcons name="account" size={20} color="#000" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerSubtitle}>PRIMERO</Text>
+            <Text style={styles.headerTitle}>Juan Diaz</Text>
+          </View>
+        </View>
+        <TouchableOpacity style={styles.bellBtn}>
+          <MaterialCommunityIcons name="bell-outline" size={22} color="#000" />
+          <View style={styles.badge}><Text style={styles.badgeText}>3</Text></View>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-
-        {/* ── HERO — full bleed, no top padding ── */}
+        {/* ── HERO ── */}
         <View style={styles.heroImage}>
-          {/* dark gradient overlay at bottom only */}
+          <Image 
+            source={store.photo_url ? { uri: store.photo_url } : require('../../assets/images/store-placeholder.png')} 
+            style={StyleSheet.absoluteFillObject} 
+          />
+          
           <View style={styles.heroOverlay} />
 
-          {/* back button — top left */}
+          {/* back button */}
           <TouchableOpacity
             style={styles.heroBackButton}
             onPress={() => navigation.goBack()}
           >
-            <MaterialCommunityIcons name="chevron-left" size={24} color="#fff" />
+            <MaterialCommunityIcons name="arrow-left" size={20} color="#000" />
           </TouchableOpacity>
 
-          {/* heart + share — top right */}
+          {/* actions */}
           <View style={styles.heroActionsRight}>
-            <TouchableOpacity style={styles.heroActionButton}>
-              <MaterialCommunityIcons name="heart-outline" size={20} color="#fff" />
+            <TouchableOpacity style={styles.heroActionButton} onPress={() => storesApi.toggleFavorite(store.id)}>
+              <MaterialCommunityIcons name="heart-outline" size={20} color="#000" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.heroActionButton}>
-              <MaterialCommunityIcons name="export-variant" size={20} color="#fff" />
+              <MaterialCommunityIcons name="share-variant-outline" size={20} color="#000" />
             </TouchableOpacity>
           </View>
 
-          {/* store name + chips — bottom of hero */}
+          {/* hero bottom stats */}
           <View style={styles.heroBottom}>
-            <Text style={styles.heroStoreName}>Farmacia Salud Plus</Text>
+            <Text style={styles.heroStoreName}>{store.business_name}</Text>
             <View style={styles.heroStats}>
-              <View style={styles.heroStatChip}>
-                <MaterialCommunityIcons name="thumb-up" size={11} color="#4CAF50" />
-                <Text style={styles.heroStatGreen}> 189</Text>
+              <View style={styles.heroStatChipDark}>
+                <MaterialCommunityIcons name="thumb-up-outline" size={12} color="#2ECC71" />
+                <Text style={styles.heroStatGreen}> {positiveVotes}</Text>
+                <Text style={{color: '#fff', fontSize: 10, marginHorizontal: 4}}>|</Text>
+                <MaterialCommunityIcons name="thumb-down-outline" size={12} color="#E74C3C" />
+                <Text style={styles.heroStatRed}> {negativeVotes}</Text>
               </View>
-              <View style={styles.heroStatChip}>
-                <MaterialCommunityIcons name="thumb-down" size={11} color="#F44336" />
-                <Text style={styles.heroStatRed}> 23</Text>
+              <View style={styles.heroStatChipWhite}>
+                <Text style={styles.heroStatDark}>{approvalPct}% positivo</Text>
               </View>
-              <View style={styles.heroStatChip}>
-                <Text style={styles.heroStatWhite}>89% positivo</Text>
-              </View>
-              <View style={styles.heroStatChip}>
-                <MaterialCommunityIcons name="map-marker" size={11} color="#ccc" />
-                <Text style={styles.heroStatMuted}> 0.3km</Text>
+              {store.distance_km != null && (
+                <View style={styles.heroStatChipDark}>
+                  <MaterialCommunityIcons name="map-marker-outline" size={12} color="#ccc" />
+                  <Text style={styles.heroStatMuted}> {store.distance_km.toFixed(1)} km</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* ── MAP SECTION ── */}
+        <View style={styles.mapSection}>
+          <MapView
+            style={styles.mapImage}
+            initialRegion={{
+              latitude: store.latitude ?? -14.2350,
+              longitude: store.longitude ?? -51.9253, // default Brazil
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            }}
+          >
+            <Marker coordinate={{ latitude: store.latitude ?? -14.2350, longitude: store.longitude ?? -51.9253 }} />
+          </MapView>
+        </View>
+
+        {/* ── INFO CARD ── */}
+        <View style={styles.infoWrapper}>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoCardTitle}>Información</Text>
+
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="map-marker-outline" size={16} color="#888" />
+              <Text style={styles.infoText}>{store.address || 'Dirección no disponible'}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="phone-outline" size={16} color="#888" />
+              <Text style={styles.phoneText}>{store.phone || 'Teléfono no disponible'}</Text>
+            </View>
+
+            <View style={[styles.infoRow, { alignItems: 'flex-start' }]}>
+              <MaterialCommunityIcons name="clock-outline" size={16} color="#888" style={{marginTop: 2}} />
+              <View style={{flex: 1}}>
+                 <Text style={styles.infoText}>Horario sujeto a cambios.</Text>
+                 <Text style={[styles.openText, { color: store.is_active ? '#2ECC71' : '#E74C3C' }]}>
+                   {store.is_active ? 'Abierto ahora' : 'Cerrado temporalmente'}
+                 </Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* ── LIGHT BG SECTION — info card sits on this ── */}
-        <View style={styles.lightSection}>
-
-          {/* ── INFO CARD ── */}
-          <View style={styles.infoCard}>
-            <Text style={styles.infoCardTitle}>Información</Text>
-
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="map-marker-outline" size={15} color="#888" />
-              <Text style={styles.infoText}>Av. Principal, Centro Comercial Plaza, Local 12-A</Text>
-            </View>
-
-            <TouchableOpacity style={styles.howToGetRow}>
-              <MaterialCommunityIcons name="navigation-outline" size={13} color="#2ECC71" />
-              <Text style={styles.howToGet}> Cómo llegar</Text>
-            </TouchableOpacity>
-
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="phone-outline" size={15} color="#888" />
-              <Text style={styles.phoneText}>+58 212 555 0123</Text>
-            </View>
-
-            <View style={[styles.infoRow, { marginBottom: 0 }]}>
-              <MaterialCommunityIcons name="clock-outline" size={15} color="#888" />
-              <Text style={styles.infoText}>Lun-Sáb 8:00 - 10:00 PM</Text>
-              <View style={styles.openBadge}>
-                <Text style={styles.openText}>Abierto ahora</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* ── COUPONS HEADER ── */}
+        {/* ── COUPONS SECTION ── */}
+        <View style={styles.couponsSection}>
           <View style={styles.couponsHeader}>
             <Text style={styles.couponsTitle}>Cupones disponibles</Text>
             <View style={styles.couponsBadge}>
-              <Text style={styles.couponsBadgeText}>3 ofertas</Text>
+              <Text style={styles.couponsBadgeText}>{MOCK_COUPONS.length} ofertas</Text>
             </View>
           </View>
 
-          {/* ── COUPON CARDS ── */}
           {MOCK_COUPONS.map((coupon) => (
             <CouponCard
               key={coupon.id}
-              coupon={coupon}
+              coupon={{...coupon, storeId: store.id, storeName: store.business_name}}
               onRedeem={() =>
                 navigation.navigate('QRScreen', { couponId: coupon.id })
               }
             />
           ))}
-
         </View>
+
       </ScrollView>
     </View>
   );
@@ -162,7 +236,66 @@ export const StoreDetailScreen = ({ navigation, route }: any) => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F2F2F2',
+    backgroundColor: '#EBEBEB',
+  },
+  header: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 10,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  profileBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSubtitle: {
+    fontSize: 9,
+    color: '#888',
+    fontFamily: 'Poppins-Medium',
+    letterSpacing: 0.5,
+  },
+  headerTitle: {
+    fontSize: 14,
+    color: '#000',
+    fontFamily: 'Poppins-Bold',
+    lineHeight: 18,
+  },
+  bellBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#E45B25',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontFamily: 'Poppins-Bold',
   },
   container: {
     flex: 1,
@@ -174,34 +307,32 @@ const styles = StyleSheet.create({
 
   // ── HERO ──
   heroImage: {
-    height: 240,
+    height: 220,
     backgroundColor: '#000000',
     position: 'relative',
   },
   heroOverlay: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 130,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    bottom: 0, left: 0, right: 0,
+    height: 120,
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
   heroBackButton: {
     position: 'absolute',
-    top: 52,
-    left: 14,
+    top: 16,
+    left: 16,
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
   },
   heroActionsRight: {
     position: 'absolute',
-    top: 52,
-    right: 14,
+    top: 16,
+    right: 16,
     flexDirection: 'row',
     gap: 8,
     zIndex: 10,
@@ -210,15 +341,15 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   heroBottom: {
     position: 'absolute',
-    bottom: 14,
-    left: 14,
-    right: 14,
+    bottom: 16,
+    left: 16,
+    right: 16,
     zIndex: 10,
   },
   heroStoreName: {
@@ -232,118 +363,113 @@ const styles = StyleSheet.create({
     gap: 6,
     flexWrap: 'wrap',
   },
-  heroStatChip: {
+  heroStatChipDark: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
   },
-  heroStatGreen: {
-    color: '#4CAF50',
-    fontSize: 11,
-    fontFamily: 'Poppins-SemiBold',
+  heroStatChipWhite: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
   },
-  heroStatRed: {
-    color: '#F44336',
-    fontSize: 11,
-    fontFamily: 'Poppins-SemiBold',
+  heroStatGreen: { color: '#2ECC71', fontSize: 11, fontFamily: 'Poppins-SemiBold' },
+  heroStatRed: { color: '#E74C3C', fontSize: 11, fontFamily: 'Poppins-SemiBold' },
+  heroStatDark: { color: '#000', fontSize: 11, fontFamily: 'Poppins-SemiBold' },
+  heroStatMuted: { color: '#E4E4E4', fontSize: 11, fontFamily: 'Poppins-Medium' },
+
+  // ── MAP ──
+  mapSection: {
+    height: 180,
+    backgroundColor: '#EBEBEB',
+    position: 'relative',
+    overflow: 'hidden',
   },
-  heroStatWhite: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontFamily: 'Poppins-Medium',
+  mapImage: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.8,
   },
-  heroStatMuted: {
-    color: '#cccccc',
-    fontSize: 11,
-    fontFamily: 'Poppins-Regular',
+  mapPinContainer: {
+    position: 'absolute',
+    top: '40%',
+    left: '25%',
   },
 
-  // ── LIGHT SECTION ──
-  lightSection: {
-    backgroundColor: '#F2F2F2',   // matches root — light gray like design
-    paddingHorizontal: 14,
-    paddingTop: 16,
+  // ── INFO CARD ──
+  infoWrapper: {
+    paddingHorizontal: 16,
+    marginTop: -20,
+    zIndex: 20,
   },
-
-  // ── INFO CARD ── dark card on light bg
   infoCard: {
-    backgroundColor: '#000000',
+    backgroundColor: '#050505',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 20,
   },
   infoCardTitle: {
     color: '#ffffff',
     fontSize: 16,
     fontFamily: 'Poppins-SemiBold',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     marginBottom: 12,
   },
   infoText: {
-    color: '#9A9A9A',
-    fontSize: 13,
+    color: '#A0A0A0',
+    fontSize: 12,
     fontFamily: 'Poppins-Regular',
+    lineHeight: 18,
     flex: 1,
   },
   phoneText: {
     color: '#2ECC71',
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'Poppins-Medium',
     flex: 1,
   },
-  howToGetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 25,
-    marginBottom: 12,
-    marginTop: -6,
-  },
-  howToGet: {
+  openText: {
     color: '#2ECC71',
     fontSize: 12,
     fontFamily: 'Poppins-Medium',
-  },
-  openBadge: {
-    backgroundColor: 'rgba(46,204,113,0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  openText: {
-    color: '#2ECC71',
-    fontSize: 10,
-    fontFamily: 'Poppins-Medium',
+    marginTop: 2,
   },
 
   // ── COUPONS ──
+  couponsSection: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+  },
   couponsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   couponsTitle: {
-    color: '#1A1A1A',             // dark text on light bg
+    color: '#1A1A1A',
     fontSize: 16,
     fontFamily: 'Poppins-SemiBold',
   },
   couponsBadge: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#E45B25',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 100,
   },
   couponsBadgeText: {
     color: '#ffffff',
-    fontSize: 12,
-    fontFamily: 'Poppins-Medium',
+    fontSize: 11,
+    fontFamily: 'Poppins-SemiBold',
   },
 });

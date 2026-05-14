@@ -1,10 +1,47 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { colors } from '../../utils/theme';
 import { AppButton } from '../../components/common/AppButton';
+import { useDispatch } from 'react-redux';
+import { setPendingRating } from '../../store/slices/guacoinsSlice';
+import { redemptionsApi } from '../../api/redemptions';
 
 export const RedeemSuccessScreen = ({ navigation, route }: any) => {
-  const { storeName, gcSpent, discount } = route.params;
+  const { couponId, storeName, gcSpent, redemptionId } = route.params;
+  const dispatch = useDispatch();
+  const [rating, setRating] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [rated, setRated] = useState(false);
+
+  useEffect(() => {
+    // Save to pending on entry, so if they leave without rating, it's tracked
+    if (redemptionId) {
+      dispatch(setPendingRating({ redemptionId, storeName }));
+    }
+  }, [redemptionId, storeName, dispatch]);
+
+  const handleRate = async (value: number) => {
+    setRating(value);
+  };
+
+  const submitRating = async () => {
+    if (rating === 0) {
+      Alert.alert('Por favor', 'Selecciona una puntuación antes de enviar.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await redemptionsApi.rate(redemptionId, rating);
+      dispatch(setPendingRating(null)); // Clear pending
+      setRated(true);
+      Alert.alert('¡Gracias!', 'Tu opinión nos ayuda a mejorar.');
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo enviar la calificación.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -30,12 +67,31 @@ export const RedeemSuccessScreen = ({ navigation, route }: any) => {
         <Text style={styles.bonusSubtitle}>Sigue ahorrando para subir de nivel</Text>
       </View>
 
-      <AppButton
-        title="Calificar experiencia"
-        onPress={() => {}}
-        variant="primary"
-        style={styles.rateButton}
-      />
+      {!rated ? (
+        <View style={styles.ratingSection}>
+          <Text style={styles.ratingTitle}>¿Cómo fue tu experiencia?</Text>
+          <View style={styles.starsRow}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <TouchableOpacity key={star} onPress={() => handleRate(star)}>
+                <Text style={[styles.star, rating >= star && styles.starActive]}>
+                  {rating >= star ? '★' : '☆'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <AppButton
+            title={submitting ? "Enviando..." : "Calificar experiencia"}
+            onPress={submitRating}
+            variant="primary"
+            disabled={submitting}
+            style={styles.rateButton}
+          />
+        </View>
+      ) : (
+        <View style={styles.ratedSection}>
+          <Text style={styles.ratedText}>✅ Experiencia calificada</Text>
+        </View>
+      )}
 
       <AppButton
         title="Volver al inicio"
@@ -54,8 +110,8 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
     paddingHorizontal: 32,
-    paddingTop: 80,
-    paddingBottom: 120,
+    paddingTop: 60,
+    paddingBottom: 80,
   },
   checkCircle: {
     width: 80,
@@ -86,12 +142,12 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 18,
     fontFamily: 'Poppins-SemiBold',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   infoCard: {
     backgroundColor: colors.surface1,
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     width: '100%',
     alignItems: 'center',
     marginBottom: 12,
@@ -121,7 +177,7 @@ const styles = StyleSheet.create({
   bonusCard: {
     backgroundColor: colors.surface1,
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     width: '100%',
     alignItems: 'center',
     marginBottom: 24,
@@ -143,8 +199,39 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
     marginTop: 4,
   },
+  ratingSection: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  ratingTitle: {
+    color: colors.textPrimary,
+    fontSize: 16,
+    fontFamily: 'Poppins-SemiBold',
+    marginBottom: 12,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
+  star: {
+    fontSize: 32,
+    color: '#444',
+  },
+  starActive: {
+    color: colors.primary,
+  },
   rateButton: {
     width: '100%',
-    marginBottom: 12,
+  },
+  ratedSection: {
+    marginBottom: 24,
+    paddingVertical: 12,
+  },
+  ratedText: {
+    color: colors.success,
+    fontSize: 16,
+    fontFamily: 'Poppins-Medium',
   },
 });

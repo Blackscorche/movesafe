@@ -174,6 +174,8 @@ export interface DashboardResponse {
   total_redemptions: number;
   badges_unlocked: number;
   active_batches: number;
+  expiring_amount: number;
+  expiring_days: number;
 }
 
 export interface TransactionItem {

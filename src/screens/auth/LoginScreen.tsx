@@ -39,9 +39,15 @@ export const LoginScreen = ({ navigation }: any) => {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [countryCode] = useState("+58");
-  const [loading, setLoading] = useState<'google' | 'apple' | 'otp' | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState<number | null>(null);
+  const [loading, setLoading] = useState<string | null>(null);
 
   const handleContinue = async () => {
+    if (cooldownRemaining) {
+      Alert.alert('Espera un poco', `Debes esperar ${Math.ceil(cooldownRemaining / 3600)} horas para cambiar de dispositivo.`);
+      return;
+    }
+
     if (tab === 'phone') {
       if (phone.length < 10) {
         Alert.alert('Error', 'Por favor ingresa un número de teléfono válido');
@@ -54,6 +60,9 @@ export const LoginScreen = ({ navigation }: any) => {
       if (res.ok) {
         navigation.navigate('OTP', { type: 'phone', identifier: fullPhone });
       } else {
+        if (res.error?.includes('24h') || res.error?.includes('dispositivo')) {
+          setCooldownRemaining(24 * 3600); // Mocking 24h for now if backend says so
+        }
         setPhone(""); // Clear input
         Alert.alert('Inténtalo de nuevo', res.error || 'No se pudo enviar el código');
       }
@@ -68,6 +77,9 @@ export const LoginScreen = ({ navigation }: any) => {
       if (res.ok) {
         navigation.navigate('OTP', { type: 'email', identifier: email });
       } else {
+        if (res.error?.includes('24h') || res.error?.includes('dispositivo')) {
+          setCooldownRemaining(24 * 3600);
+        }
         setEmail(""); // Clear input
         Alert.alert('Inténtalo de nuevo', res.error || 'No se pudo enviar el código');
       }
