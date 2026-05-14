@@ -23,7 +23,7 @@ export const ONBOARDING_SLIDES = [
     title: "Camina",
     subtitle: "Cada paso cuenta",
     body: "Conecta tu app de salud y gana GuaCoins por alcanzar tus metas diarias de pasos.",
-    image: require('../assets/images/onboarding-walk.jpg'),
+    image: require('../assets/images/onboarding-walk.png'),
     accent: "#E45B25",
   },
   {
@@ -31,7 +31,7 @@ export const ONBOARDING_SLIDES = [
     title: "Gana",
     subtitle: "Bienestar y recompensas reales",
     body: "Acumula GuaCoins todos los días. Mantén rachas para ganar bonificaciones especiales.",
-    image: require('../assets/images/onboarding-run.jpg'),
+    image: require('../assets/images/onboarding-run.png'),
     accent: "#FF4D8F",
   },
   {
@@ -39,7 +39,7 @@ export const ONBOARDING_SLIDES = [
     title: "Canjea",
     subtitle: "Ahorra en tus comercios",
     body: "Usa tus GuaCoins para obtener descuentos en farmacias, supermercados y más.",
-    image: require('../assets/images/onboarding-redeem.jpg'),
+    image: require('../assets/images/onboarding-redeem.png'),
     accent: "#00D4AA",
   },
 ];

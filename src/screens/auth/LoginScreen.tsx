@@ -28,11 +28,11 @@ const PLATFORM = Platform.OS === 'ios' ? 'IOS' : 'ANDROID';
 const DEVICE_ID = Constants.sessionId ?? 'unknown-device';
 
 export const LoginScreen = ({ navigation }: any) => {
-  const { 
-    signIn, 
-    signInWithGoogle, 
-    sendOtp, 
-    sendEmailOtp 
+  const {
+    signIn,
+    signInWithGoogle,
+    sendOtp,
+    sendEmailOtp
   } = useAuthContext();
 
   const [tab, setTab] = useState<"phone" | "email">("phone");
@@ -216,10 +216,10 @@ export const LoginScreen = ({ navigation }: any) => {
           )}
 
           {/* CONTINUE BUTTON */}
-          <AppButton 
-            title="Continuar" 
-            onPress={handleContinue} 
-            loading={loading === 'otp'} 
+          <AppButton
+            title="Continuar"
+            onPress={handleContinue}
+            loading={loading === 'otp'}
           />
 
           {/* DIVIDER */}
