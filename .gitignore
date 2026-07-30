@@ -31,3 +31,20 @@ ios/build/
 
 # TypeScript
 *.tsbuildinfo
+.env.*
+*.pem
+*serviceAccount*.json
+google-services.json
+GoogleService-Info.plist
+*.keystore
+build/
+.dart_tool/
+__pycache__/
+venv/
+.venv/
+*.log
+.idea/
+.vs/
+bin/
+obj/
+.next/
